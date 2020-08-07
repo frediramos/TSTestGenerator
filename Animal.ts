@@ -1,10 +1,14 @@
 class Animal {
     
-    name:string;
+    friend:Animal;
     position:number =0;
-    constructor(x:number){this.position=x}
-    walk(dist:number,nome:string) : void {
-        this.name=nome;
+    constructor(x:number){
+        this.position=x;
+    }
+    walk(dist:number,partner:Animal) : void {
+        this.friend=partner;
         this.position += dist;
     }
 }
+
+class Person{}
