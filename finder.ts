@@ -127,7 +127,7 @@ console.log("Expected property type: Animal                         Returned pro
 console.log("Expected property type: number                         Returned property type: "+checker.typeToString(PropertiesInfo["position"]));
 console.log("_______________________________________________________________________________________________________________\n\nConstructors:");
 console.log("Expected constructor parameter type: number            Returned constructor parameter type: "+checker.typeToString(ConstructorsInfo["Animal"].arg_types[0]));
-console.log("Expected constructor parameter type: Animal            Returned constructor parameter type: "+checker.typeToString(ConstructorsInfo["Animal"].ret_type));
+console.log("Expected constructor return type: Animal               Returned constructor return type: "+checker.typeToString(ConstructorsInfo["Animal"].ret_type));
 console.log("_______________________________________________________________________________________________________________\n\nMethods:");
 console.log("Expected method parameter type: number                 Returned method parameter type: "+checker.typeToString(MethodsInfo["walk"].arg_types[0]));
 console.log("Expected method parameter type: Animal                 Returned method parameter type: "+checker.typeToString(MethodsInfo["walk"].arg_types[1]));
