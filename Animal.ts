@@ -11,4 +11,8 @@ class Animal {
     }
 }
 
+function walk(x:number):number{
+    return x;
+}
+
 class Person{}

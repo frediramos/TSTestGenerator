@@ -2,7 +2,7 @@ import * as ts from "typescript";
 import * as fs from "fs";
 
 
-//Class to store parameters type and return type
+//Class to store parameters type, return type and class type if it is a class method and not a function
 class ComposedInfo {
     arg_types:ts.Type[]=[];
     ret_type:ts.Type;
@@ -20,6 +20,7 @@ var ClassesInfo: HashTable<ts.Type> = {};
 var MethodsInfo: HashTable<ComposedInfo> = {};
 var ConstructorsInfo: HashTable<ComposedInfo> = {};
 var PropertiesInfo: HashTable<ts.Type> = {};
+var FunctionsInfo: HashTable<ComposedInfo> = {};
 
 
 //::::::::Function to set up for the traversation of the AST::::::::
@@ -39,18 +40,17 @@ function finder(fileNames:string[],options:ts.CompilerOptions):void{
 function visitAST(checker: ts.TypeChecker, node: ts.Node) {
 
     //Check if the node is exported or not
-    if (!isNodeExported(node)) {
+    if (!isNodeExported(node)) 
         return;
-    }
+    
 
+    //-----Classes handling-----
     else if (ts.isClassDeclaration(node) && node.name) {
 
-        //-----Classes handling-----
         const symbol = checker.getSymbolAtLocation(node.name);
         
         //Store the type of the class in the position "<ClassName>" of ClassInfo
-        if (symbol) 
-            ClassesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
+        ClassesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
         
 
         //-----Constructors handling-----
@@ -95,7 +95,25 @@ function visitAST(checker: ts.TypeChecker, node: ts.Node) {
             else if(ts.isPropertyDeclaration(member))
                 PropertiesInfo[symbol.getName()]=checker.getTypeAtLocation(member.type);
         }
-    } 
+    }
+
+    //-----Functions handling-----
+    else if(ts.isFunctionDeclaration(node) && node.name) {
+        const symbol = checker.getSymbolAtLocation(node.name);
+
+        FunctionsInfo[symbol.getName()]=new ComposedInfo();
+        const functionType = checker.getTypeOfSymbolAtLocation(symbol,symbol.valueDeclaration!);
+
+        for(const signature of functionType.getCallSignatures()){
+
+            //Store the types of the parameters in arg_types in the position "<FunctionName>" of FunctionsInfo 
+            for(const parameter of signature.parameters)
+            FunctionsInfo[symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!));
+            
+            //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
+            FunctionsInfo[symbol.getName()].ret_type=signature.getReturnType();
+        }
+    }
 }
 
 
@@ -131,7 +149,10 @@ console.log("Expected constructor return type: Animal               Returned con
 console.log("_______________________________________________________________________________________________________________\n\nMethods:");
 console.log("Expected method parameter type: number                 Returned method parameter type: "+checker.typeToString(MethodsInfo["walk"].arg_types[0]));
 console.log("Expected method parameter type: Animal                 Returned method parameter type: "+checker.typeToString(MethodsInfo["walk"].arg_types[1]));
-console.log("Expected method return type: void                      Returned method parameter type: "+checker.typeToString(MethodsInfo["walk"].ret_type));
+console.log("Expected method return type: void                      Returned method return type: "+checker.typeToString(MethodsInfo["walk"].ret_type));
+console.log("_______________________________________________________________________________________________________________\n\nFunctions:");
+console.log("Expected function parameter type: number               Returned function parameter type: "+checker.typeToString(FunctionsInfo["walk"].arg_types[0]));
+console.log("Expected function return type: number                  Returned function return type: "+checker.typeToString(FunctionsInfo["walk"].ret_type));
 
 if(!(ClassesInfo["Person"]===ClassesInfo["Animal"])){
     console.log("_______________________________________________________________________________________________________________\nClass Person type different from class Animal type");
