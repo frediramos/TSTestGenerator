@@ -15,29 +15,35 @@ interface HashTable<T>{
 }
 
 
-//Hashtables declaration and initialization
-var ClassesInfo: HashTable<ts.Type> = {};
-var MethodsInfo: HashTable<ComposedInfo> = {};
-var ConstructorsInfo: HashTable<ComposedInfo> = {};
-var PropertiesInfo: HashTable<ts.Type> = {};
+//Class that will store all the information in the program
+export class ProgramInfo{
+    ClassesInfo: HashTable<ts.Type> = {};
+    MethodsInfo: HashTable<HashTable<ComposedInfo>> = {};
+    ConstructorsInfo: HashTable<ComposedInfo []> = {};
+    PropertiesInfo: HashTable<HashTable<ts.Type>> = {};
+}
+/*
++++not for now+++
 var FunctionsInfo: HashTable<ComposedInfo> = {};
-
+*/
 
 //::::::::Function to set up for the traversation of the AST::::::::
-function finder(fileNames:string[],options:ts.CompilerOptions):void{
+export function finder(fileNames:string[]):ProgramInfo{
 
-    const program = ts.createProgram(fileNames, options);
+    var prog_info=new ProgramInfo();
+    const program = ts.createProgram(fileNames, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
     const checker = program.getTypeChecker();
-    const visitASTWithChecker = visitAST.bind(undefined, checker);
+    const visitASTWithChecker = visitAST.bind(undefined, checker,prog_info);
 
     for (const sourceFile of program.getSourceFiles()) 
         if (!sourceFile.isDeclarationFile) 
             ts.forEachChild(sourceFile, visitASTWithChecker);
+    return prog_info;
 }
 
 
 //::::::::Function to traverse the AST::::::::
-function visitAST(checker: ts.TypeChecker, node: ts.Node) {
+function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node) {
 
     //Check if the node is exported or not
     if (!isNodeExported(node)) 
@@ -46,57 +52,75 @@ function visitAST(checker: ts.TypeChecker, node: ts.Node) {
 
     //-----Classes handling-----
     else if (ts.isClassDeclaration(node) && node.name) {
-
+        
         const symbol = checker.getSymbolAtLocation(node.name);
         
         //Store the type of the class in the position "<ClassName>" of ClassInfo
-        ClassesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
+        prog_info.ClassesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
+
+
+        //-----Constructors, methods and properties handling-----
         
+        var constructor_count:number = 0;
 
-        //-----Constructors handling-----
-        ConstructorsInfo[symbol.getName()]=new ComposedInfo();
-
-        //This constructorType will then be used to get the ConstructSignatures from where we can get the parameters and the return type
-        const constructorType = checker.getTypeOfSymbolAtLocation(symbol,symbol.valueDeclaration!);
-
-        for(const signature of constructorType.getConstructSignatures()){
-
-            //Store the types of the parameters in arg_types in the position "<ClassName>" of ConstructorsInfo 
-            for(const parameter of signature.parameters)
-                ConstructorsInfo[symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!));
-            
-            //Store the return type of the constructor in ret_type in the position "<ClassName>" of ConstructorsInfo
-            ConstructorsInfo[symbol.getName()].ret_type=signature.getReturnType();
-        }
-
-
-        //-----Methods and properties handling-----
         for(const member of node.members) {
-            const symbol = checker.getSymbolAtLocation(member.name);
+            const member_symbol = checker.getSymbolAtLocation(member.name);
 
-            //-----Methods handling-----
-            if (ts.isMethodDeclaration(member)){
+            //-----Constructors handling-----
+            if(ts.isConstructorDeclaration(member)){
+                
+                //Must initialize sub-array, otherwise it is undefined
+                if(prog_info.ConstructorsInfo[symbol.getName()]===undefined)
+                    prog_info.ConstructorsInfo[symbol.getName()] = [];
+                    
+                prog_info.ConstructorsInfo[symbol.getName()][constructor_count]=new ComposedInfo();
 
-                MethodsInfo[symbol.getName()]=new ComposedInfo();
-
-                //Store the types of the parameters in arg_types in the position "<MethodName>" of MethodsInfo 
+                //Store the types of the parameters in arg_types in the position "<ClassName><ConstructorNumber>" of ConstructorsInfo 
                 for(const parameter of member.parameters){
                     const symbol_p = checker.getSymbolAtLocation(parameter.name);
-                    MethodsInfo[symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(symbol_p, symbol_p.valueDeclaration!));
+                    prog_info.ConstructorsInfo[symbol.getName()][constructor_count].arg_types.push(checker.getTypeOfSymbolAtLocation(symbol_p, symbol_p.valueDeclaration!));
                 }
 
-                //Store the return type of the method in ret_type in the position "<MethodName>" of MethodsInfo 
-                MethodsInfo[symbol.getName()].ret_type=checker.getTypeAtLocation(member.type);
+                //Store the return type of the constructor in ret_type in the position "<ClassName><ConstructorNumber>" of ConstructorsInfo 
+                prog_info.ConstructorsInfo[symbol.getName()][constructor_count].ret_type=checker.getTypeAtLocation(node);
+
+                constructor_count++;
+            }
+
+            //-----Methods handling-----
+            else if (ts.isMethodDeclaration(member)){
+
+                //Must initialize sub-hashtable, otherwise it is undefined
+                if(prog_info.MethodsInfo[symbol.getName()]===undefined)
+                    prog_info.MethodsInfo[symbol.getName()] = {};
+
+                prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()]=new ComposedInfo();
+
+                //Store the types of the parameters in arg_types in the position "<ClassName><MethodName>" of MethodsInfo 
+                for(const parameter of member.parameters){
+                    const symbol_p = checker.getSymbolAtLocation(parameter.name);
+                    prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(symbol_p, symbol_p.valueDeclaration!));
+                }
+
+                //Store the return type of the method in ret_type in the position "<ClassName><MethodName>" of MethodsInfo 
+                prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()].ret_type=checker.getTypeAtLocation(member.type);
             }
 
             //-----Properties handling-----
+            else if(ts.isPropertyDeclaration(member)){
 
-            //Stores the property type in the position"<PropertyName>" of PropertiesInfo
-            else if(ts.isPropertyDeclaration(member))
-                PropertiesInfo[symbol.getName()]=checker.getTypeAtLocation(member.type);
+                //Must initialize sub-hashtable, otherwise it is undefined
+                if(prog_info.PropertiesInfo[symbol.getName()]===undefined)
+                    prog_info.PropertiesInfo[symbol.getName()]={};
+
+                //Stores the property type in the position"<ClassName><PropertyName>" of PropertiesInfo
+                prog_info.PropertiesInfo[symbol.getName()][member_symbol.getName()]=checker.getTypeAtLocation(member.type);
+            }
         }
     }
 
+/*
++++not for now+++
     //-----Functions handling-----
     else if(ts.isFunctionDeclaration(node) && node.name) {
         const symbol = checker.getSymbolAtLocation(node.name);
@@ -114,6 +138,8 @@ function visitAST(checker: ts.TypeChecker, node: ts.Node) {
             FunctionsInfo[symbol.getName()].ret_type=signature.getReturnType();
         }
     }
+*/
+
 }
 
 
@@ -123,48 +149,4 @@ function isNodeExported(node: ts.Node): boolean {
       (ts.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) !== 0 ||
       (!!node.parent && node.parent.kind === ts.SyntaxKind.SourceFile)
     );
-  }
-
-
-//::::::::Call of the function that will find the information we need::::::::
-finder(process.argv.slice(2), { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
-
-
-
-//  (Example to see how the program runs)
-//  ______________________________________________________________
-
-const program = ts.createProgram(process.argv.slice(2), { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
-const checker = program.getTypeChecker();
-
-console.log("Classes:");
-console.log("Expected class type: Animal                            Returned class type: "+checker.typeToString(ClassesInfo["Animal"]));
-console.log("Expected class type: Person                            Returned class type: "+checker.typeToString(ClassesInfo["Person"]));
-console.log("_______________________________________________________________________________________________________________\n\nProperties:");
-console.log("Expected property type: Animal                         Returned property type: "+checker.typeToString(PropertiesInfo["friend"]));
-console.log("Expected property type: number                         Returned property type: "+checker.typeToString(PropertiesInfo["position"]));
-console.log("_______________________________________________________________________________________________________________\n\nConstructors:");
-console.log("Expected constructor parameter type: number            Returned constructor parameter type: "+checker.typeToString(ConstructorsInfo["Animal"].arg_types[0]));
-console.log("Expected constructor return type: Animal               Returned constructor return type: "+checker.typeToString(ConstructorsInfo["Animal"].ret_type));
-console.log("_______________________________________________________________________________________________________________\n\nMethods:");
-console.log("Expected method parameter type: number                 Returned method parameter type: "+checker.typeToString(MethodsInfo["walk"].arg_types[0]));
-console.log("Expected method parameter type: Animal                 Returned method parameter type: "+checker.typeToString(MethodsInfo["walk"].arg_types[1]));
-console.log("Expected method return type: void                      Returned method return type: "+checker.typeToString(MethodsInfo["walk"].ret_type));
-console.log("_______________________________________________________________________________________________________________\n\nFunctions:");
-console.log("Expected function parameter type: number               Returned function parameter type: "+checker.typeToString(FunctionsInfo["walk"].arg_types[0]));
-console.log("Expected function return type: number                  Returned function return type: "+checker.typeToString(FunctionsInfo["walk"].ret_type));
-
-if(!(ClassesInfo["Person"]===ClassesInfo["Animal"])){
-    console.log("_______________________________________________________________________________________________________________\nClass Person type different from class Animal type");
 }
-
-if(MethodsInfo["walk"].arg_types[1]===ClassesInfo["Animal"]){
-    console.log("Parameter partner type equals class Animal type");
-}
-
-if(ConstructorsInfo["Animal"].ret_type===ClassesInfo["Animal"]){
-    console.log("Constructor of Animal return type equals class Animal type");
-}
-
-//  ______________________________________________________________
-
