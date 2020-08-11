@@ -125,6 +125,10 @@ function createSymbAssignment (arg_type:string) {
 
 
 //This function generates the call of a constructor with symbolic parameters 
+// generateObject(class_name : string) : Stmt [] 
+// 
+
+
 function generateObject(obj_name:string){
   var symb_vars = [];
   var stmts = []; 
@@ -143,8 +147,12 @@ function generateObject(obj_name:string){
   });  
 
   var constructor_ret_str =`var ${obj} = new ${obj_name}(${constructor_args_str})`;
+  var constructor_ret_stmt = str2ast(constructor_ret_str); 
+
+  var ret_stmt = generateBlock(stmts.concat([ constructor_ret_stmt ])); 
+
   return {
-    stmt: str2ast(constructor_ret_str),
+    stmt: ret_stmt,
     var:obj
   }
 }
@@ -178,22 +186,25 @@ function generateFinalNumberAsrt(ret_var:string) {
     return str2ast(ret_str); 
 }
 
-function generateFinalObjectAsrt(ret_var:string) { 
-  var ret_str = `assert(typeof ${ret_var} === "Animal");`; 
+function generateFinalObjectAsrt(ret_var:string,ret_type: string) { 
+  var ret_str = `assert(${ret_var} instanceof ${ret_type});`; 
   return str2ast(ret_str); 
 }
 
 //This function generates an assertion to check the return type based on the expected return 
 //type and the return type on the return variable
-function generateFinalAsrt (ret_type:string, ret_var:string) {
+function generateFinalAsrt (ret_type:string, ret_var:string, program_info : ProgramInfo) {
    switch(ret_type) {
       case "string" : return generateFinalStringAsrt(ret_var); 
 
       case "number" : return generateFinalNumberAsrt(ret_var); 
-
-      case "Animal" : return generateFinalObjectAsrt(ret_var)
       
-      default: throw new Error ("generateFinalAsrt: Unsupported type")
+      default: 
+        if (program_info.hasClass(ret_type)) {
+          return  generateFinalObjectAsrt(ret_var, ret_type)
+        } else {
+          throw new Error ("generateFinalAsrt: Unsupported type")
+        }
    }
 }
 
