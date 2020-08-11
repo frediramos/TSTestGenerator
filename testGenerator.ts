@@ -15,7 +15,7 @@ constructor_arg_types["Animal"].push("string");
 //:::::::::::::::::::::::
 
 //variable that will store the test statements
-var stmts; 
+
 
 //Turns ast into string
 function ast2str (e) {
@@ -127,6 +127,7 @@ function createSymbAssignment (arg_type:string) {
 //This function generates the call of a constructor with symbolic parameters 
 function generateObject(obj_name:string){
   var symb_vars = [];
+  var stmts = []; 
 
   for (var i=0; i<constructor_arg_types[obj_name].length; i++) { 
     var ret = createSymbAssignment(constructor_arg_types[obj_name][i]);
@@ -209,7 +210,7 @@ function generateBlock(stmts) {
 //generates a test for the function 
 function GenerateTest(fun_name:string, arg_types:string[], ret_type:string) {
   var symb_vars = []; 
-  stmts=[];
+   var stmts=[];
 
   for (var i=0; i<arg_types.length; i++) { 
         var ret = createSymbAssignment(arg_types[i]);
