@@ -1,18 +1,24 @@
 class Animal {
-    
-    friend:Animal;
     position:number =0;
+    constructor(x:number,y:number);
     constructor(x:number){
         this.position=x;
     }
-    walk(dist:number,partner:Animal) : void {
-        this.friend=partner;
+    walk(dist:number,friend:Animal) : number {
         this.position += dist;
+        return dist;
     }
 }
 
-function walk(x:number):number{
-    return x;
-}
+class Person {
+    name:string;
+    friend:string
+    constructor(abc:string){
+        this.name=abc;
+    }
 
-class Person{}
+    walk(friend:string,dist:number) : number {
+        this.friend = friend;
+        return dist;
+    }
+}
