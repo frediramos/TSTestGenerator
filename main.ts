@@ -8,7 +8,7 @@ var prog_info:finder.ProgramInfo = finder.finder(process.argv.slice(2));
 
 var test = tg.generateTests(prog_info);
 
-fs.writeFile(process.argv.slice(2)+"-test.txt",test, function(err){
+fs.writeFile(process.argv.slice(2)+"-test.js",test, function(err){
     if(err) 
       return console.error(err);
   });
