@@ -3,7 +3,7 @@ import * as fs from "fs";
 
 
 //Class to store parameters type, return type and class type if it is a class method and not a function
-class ComposedInfo {
+export class ComposedInfo {
     arg_types:ts.Type[]=[];
     ret_type:ts.Type;
 }
@@ -17,10 +17,17 @@ interface HashTable<T>{
 
 //Class that will store all the information in the program
 export class ProgramInfo{
+    Checker: ts.TypeChecker;
     ClassesInfo: HashTable<ts.Type> = {};
     MethodsInfo: HashTable<HashTable<ComposedInfo>> = {};
     ConstructorsInfo: HashTable<ComposedInfo []> = {};
     PropertiesInfo: HashTable<HashTable<ts.Type>> = {};
+
+    hasClass(class_name:string):boolean{
+        if(this.ClassesInfo[class_name]===undefined)
+            return false;
+        return true;
+    }
 }
 /*
 +++not for now+++
@@ -33,6 +40,7 @@ export function finder(fileNames:string[]):ProgramInfo{
     var prog_info=new ProgramInfo();
     const program = ts.createProgram(fileNames, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
     const checker = program.getTypeChecker();
+    prog_info.Checker=checker;
     const visitASTWithChecker = visitAST.bind(undefined, checker,prog_info);
 
     for (const sourceFile of program.getSourceFiles()) 

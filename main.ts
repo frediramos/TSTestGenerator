@@ -1,12 +1,22 @@
 import * as ts from "typescript";
+import * as fs from "fs";
 import finder = require("./finder");
+import tg = require("./testGenerator");
 
 
 var prog_info:finder.ProgramInfo = finder.finder(process.argv.slice(2));
 
+var test = tg.generateTests(prog_info);
+
+fs.writeFile(process.argv.slice(2)+"-test.txt",test, function(err){
+    if(err) 
+      return console.error(err);
+  });
 
 
-//=============Example to test if prog_info has the Hashtables filled correctly=============
+/*
+=============Example to test if prog_info has the Hashtables filled correctly=============
+
 const program = ts.createProgram(process.argv.slice(2), { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
 const checker = program.getTypeChecker();
 
@@ -43,4 +53,6 @@ if(prog_info.MethodsInfo["Animal"]["walk"].arg_types[1]===prog_info.ClassesInfo[
 if(prog_info.ConstructorsInfo["Animal"][0].ret_type===prog_info.ClassesInfo["Animal"]){
     console.log("Constructor of Animal return type equals class Animal type");
 }
-//==========================================================================================
+
+==========================================================================================
+*/
