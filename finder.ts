@@ -10,7 +10,7 @@ export class ComposedInfo {
 
 
 //Interface of a simple Hashtable
-interface HashTable<T>{
+export interface HashTable<T>{
     [key:string] : T;
 }
 
@@ -22,6 +22,7 @@ export class ProgramInfo{
     MethodsInfo: HashTable<HashTable<ComposedInfo>> = {};
     ConstructorsInfo: HashTable<ComposedInfo []> = {};
     PropertiesInfo: HashTable<HashTable<ts.Type>> = {};
+    FunctionsInfo: HashTable<ComposedInfo> = {};
 
     hasClass(class_name:string):boolean{
         if(this.ClassesInfo[class_name]===undefined)
@@ -29,10 +30,6 @@ export class ProgramInfo{
         return true;
     }
 }
-/*
-+++not for now+++
-var FunctionsInfo: HashTable<ComposedInfo> = {};
-*/
 
 //::::::::Function to set up for the traversation of the AST::::::::
 export function finder(fileNames:string[]):ProgramInfo{
@@ -127,26 +124,23 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
         }
     }
 
-/*
-+++not for now+++
     //-----Functions handling-----
     else if(ts.isFunctionDeclaration(node) && node.name) {
         const symbol = checker.getSymbolAtLocation(node.name);
 
-        FunctionsInfo[symbol.getName()]=new ComposedInfo();
+        prog_info.FunctionsInfo[symbol.getName()]=new ComposedInfo();
         const functionType = checker.getTypeOfSymbolAtLocation(symbol,symbol.valueDeclaration!);
 
         for(const signature of functionType.getCallSignatures()){
 
             //Store the types of the parameters in arg_types in the position "<FunctionName>" of FunctionsInfo 
             for(const parameter of signature.parameters)
-            FunctionsInfo[symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!));
+            prog_info.FunctionsInfo[symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!));
             
             //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
-            FunctionsInfo[symbol.getName()].ret_type=signature.getReturnType();
+            prog_info.FunctionsInfo[symbol.getName()].ret_type=signature.getReturnType();
         }
     }
-*/
 
 }
 
