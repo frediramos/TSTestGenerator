@@ -14,6 +14,11 @@ export interface HashTable<T>{
     [key:string] : T;
 }
 
+class ClassVertex{
+    visited:boolean = false;
+    edges:string[];
+}
+
 
 //Class that will store all the information in the program
 export class ProgramInfo{
@@ -151,4 +156,90 @@ function isNodeExported(node: ts.Node): boolean {
       (ts.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) !== 0 ||
       (!!node.parent && node.parent.kind === ts.SyntaxKind.SourceFile)
     );
+}
+
+
+////::::::::This function initializes the classes graph::::::::
+function initializeClassesGraph(classes_graph:HashTable<ClassVertex>,program_info:ProgramInfo){
+
+    Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
+        
+        if(classes_graph[class_name]===undefined){
+            classes_graph[class_name]=new ClassVertex();
+            classes_graph[class_name].edges=[];
+        }
+
+        for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+            for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++){
+                
+                var arg_type = program_info.ConstructorsInfo[class_name][i].arg_types[j];
+                var arg_type_str = program_info.Checker.typeToString(arg_type);
+                
+                if(arg_type_str !=="string" && arg_type_str !=="number"){
+
+                        
+                    classes_graph[class_name].edges.push(arg_type_str);
+                }
+            }
+        }
+    });
+}
+
+////::::::::This function initializes the classes graph::::::::
+function visitGraph(vertex:ClassVertex,graph:HashTable<ClassVertex>){
+
+    if(vertex.visited){
+        return{
+            path: "",
+            cycle: true
+        };
+    }
+    
+    vertex.visited=true;
+
+    for(var i=0;i<vertex.edges.length;i++){
+
+        var ret_edge_visit = visitGraph(graph[vertex.edges[i]],graph);
+        return {
+            path:" -> "+vertex.edges[i]+ret_edge_visit.path,
+            cycle:ret_edge_visit.cycle
+        }
+    }
+
+    return {
+        path:"",
+        cycle:false
+    }
+
+}
+
+
+//::::::::Sets all vertices to non visited::::::::
+function setAllVerticesNotVisited(graph:HashTable<ClassVertex>){
+    Object.keys(graph).forEach(function (class_name) {
+        graph[class_name].visited=false;
+    });
+}
+
+
+//::::::::Returns the method and properties that will generate a cycle while generating the tests::::::::
+export function findCycles(program_info:ProgramInfo){
+    var classes_graph:HashTable<ClassVertex> = {};
+    var cycles =[];
+
+    initializeClassesGraph(classes_graph,program_info);
+
+    Object.keys(classes_graph).forEach(function (class_name) {
+
+        var start=class_name;
+        var ret_cycle=visitGraph(classes_graph[class_name],classes_graph)
+        start=start+ret_cycle.path;
+
+        if(ret_cycle.cycle)
+            cycles.push(start);
+        
+        setAllVerticesNotVisited(classes_graph);
+    });
+
+    return cycles;
 }

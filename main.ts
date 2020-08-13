@@ -6,13 +6,20 @@ import tg = require("./testGenerator");
 
 var prog_info:finder.ProgramInfo = finder.finder(process.argv.slice(2));
 
-var test = tg.generateTests(prog_info);
+var cycles =finder.findCycles(prog_info);
 
-fs.writeFile(process.argv.slice(2)+"-test.js",test, function(err){
-    if(err) 
-      return console.error(err);
-  });
+if(cycles.length!==0){
+    console.log("Error: Cyclic object construction");
+}
 
+else{
+    var test = tg.generateTests(prog_info);
+
+    fs.writeFile(process.argv.slice(2)+"-test.js",test, function(err){
+        if(err) 
+        return console.error(err);
+    });
+}
 
 /*
 =============Example to test if prog_info has the Hashtables filled correctly=============
