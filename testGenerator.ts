@@ -283,6 +283,8 @@ function generateBlock(stmts) {
 //::::::::This fucntion is responsible for genarating the program tests::::::::
 export function generateTests(program_info : finder.ProgramInfo):string{
 
+  var fun_names = [];
+  var num_fun = 0;
   var tests=[];
   var number_test:finder.HashTable<number>={};
 
@@ -301,6 +303,9 @@ export function generateTests(program_info : finder.ProgramInfo):string{
       var method_call = str2ast(method_call_str);
       tests.push(method_call);
 
+      fun_names[num_fun]=method_call_str;
+      num_fun++;
+
     });
   });
 
@@ -318,6 +323,8 @@ export function generateTests(program_info : finder.ProgramInfo):string{
     var fun_call = str2ast(fun_call_str);
     tests.push(fun_call);
 
+    fun_names[num_fun]=fun_call_str;
+    num_fun++;
   });
 
 
