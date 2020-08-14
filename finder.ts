@@ -190,25 +190,30 @@ function visitGraph(vertex:ClassVertex,graph:HashTable<ClassVertex>){
 
     if(vertex.visited){
         return{
-            path: "",
+            path: [],
             cycle: true
         };
     }
     
     vertex.visited=true;
+    var hasCycle = false;
+    var paths = [];
 
     for(var i=0;i<vertex.edges.length;i++){
-
+        
         var ret_edge_visit = visitGraph(graph[vertex.edges[i]],graph);
-        return {
-            path:" -> "+vertex.edges[i]+ret_edge_visit.path,
-            cycle:ret_edge_visit.cycle
+        for(var j=0;j<ret_edge_visit.paths.length;j++){
+            var path=" -> "+vertex.edges[i]+ret_edge_visit.paths[j];
+            if(ret_edge_visit.cycle){
+                hasCycle = true;
+                paths.push(path);
+            }   
         }
     }
 
     return {
-        path:"",
-        cycle:false
+        paths:paths,
+        cycle:hasCycle
     }
 
 }
@@ -231,12 +236,15 @@ export function findCycles(program_info:ProgramInfo){
 
     Object.keys(classes_graph).forEach(function (class_name) {
 
-        var start=class_name;
-        var ret_cycle=visitGraph(classes_graph[class_name],classes_graph)
-        start=start+ret_cycle.path;
+        var ret_cycle=visitGraph(classes_graph[class_name],classes_graph);
 
-        if(ret_cycle.cycle)
-            cycles.push(start);
+        for(var i=0;i<ret_cycle.paths.length;i++){
+            var start=class_name;
+            start=start+ret_cycle.paths[i];
+
+            if(ret_cycle.cycle)
+                cycles.push(start);
+        }   
         
         setAllVerticesNotVisited(classes_graph);
     });
