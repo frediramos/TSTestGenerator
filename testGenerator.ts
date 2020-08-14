@@ -68,7 +68,7 @@ function createStringSymbAssignment () {
   var ret_str = `var ${x} = symb_string("#${x}")`; 
 
   return {
-      stmt: str2ast(ret_str), 
+      stmts: [str2ast(ret_str)], 
       var: x 
   } 
 }
@@ -80,7 +80,7 @@ function createNumberSymbAssignment () {
     var ret_str = `var ${x} = symb_number("#${x}")`; 
 
     return {
-        stmt: str2ast(ret_str), 
+        stmts: [str2ast(ret_str)], 
         var: x 
     } 
   }
@@ -112,14 +112,14 @@ function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo){
   for (var i=0; i<arg_types.length; i++) { 
     var type_str=program_info.Checker.typeToString(arg_types[i]);
     var ret = createSymbAssignment(type_str,program_info);
-    stmts.push(ret.stmt); 
+    stmts = stmts.concat(ret.stmts); 
     symb_vars.push(ret.var); 
   }
 
   var args_str = symb_vars.reduce(function (cur_str, prox) {
     if (cur_str === "") return prox; 
     else return cur_str + ", " + prox; 
-  });
+  },"");
 
 
   return{
@@ -162,7 +162,7 @@ function generateObject(class_name:string, program_info:finder.ProgramInfo){
     for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
       var type_str=program_info.Checker.typeToString(program_info.ConstructorsInfo[class_name][i].arg_types[j])
       var ret = createSymbAssignment(type_str,program_info);
-      stmts.push(ret.stmt); 
+      stmts=stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 
     }
   }
@@ -171,14 +171,14 @@ function generateObject(class_name:string, program_info:finder.ProgramInfo){
   var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
     if (cur_str === "") return prox; 
     else return cur_str + ", " + prox; 
-  });  
+  },"");  
   var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
   var constructor_ret_stmt = str2ast(constructor_ret_str); 
   stmts.push(constructor_ret_stmt); 
 
 
   return {
-    stmt: stmts,
+    stmts: stmts,
     var:obj
   }
 }
@@ -190,7 +190,7 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
 
   //Object creation
   var ret_obj=generateObject(class_name,program_info);
-  stmts=stmts.concat(ret_obj.stmt);
+  stmts=stmts.concat(ret_obj.stmts);
   
 
   //Args symbols creation
@@ -209,6 +209,20 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   stmts.push(ret_asrt);
 
   return createFunctionDeclaration(method_name,stmts,method_number_test);
+}
+
+//::::::::This function generates a mock function from type::::::::
+function generateMockFunction(arg_types:string[],ret_type:string,program_info:finder.ProgramInfo){
+  var stmts = [];
+  
+  var ret = createSymbAssignment(ret_type,program_info);
+  stmts = stmts.concat(ret.stmts);
+  
+  var params = [];
+  for(var i=0;i<arg_types.length;i++){
+    params.push("x_"+i);
+  }
+
 }
 
 
@@ -256,6 +270,7 @@ function generateFinalObjectAsrt(ret_var:string,ret_type: string) {
 
 //::::::::This function generates an assertion to check the return type ::::::::
 function generateFinalAsrt (ret_type:string, ret_var:string, program_info : finder.ProgramInfo) {
+  console.log(ret_type);
   
    switch(ret_type) {
       case "string" : return generateFinalStringAsrt(ret_var); 
