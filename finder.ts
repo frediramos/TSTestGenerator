@@ -15,7 +15,7 @@ export interface HashTable<T>{
 }
 
 class ClassVertex{
-    visited:boolean = false;
+    visited:number;
     edges:string[];
 }
 
@@ -167,6 +167,7 @@ function initializeClassesGraph(classes_graph:HashTable<ClassVertex>,program_inf
         if(classes_graph[class_name]===undefined){
             classes_graph[class_name]=new ClassVertex();
             classes_graph[class_name].edges=[];
+            classes_graph[class_name].visited=0;
         }
 
         for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
@@ -185,44 +186,66 @@ function initializeClassesGraph(classes_graph:HashTable<ClassVertex>,program_inf
     });
 }
 
-////::::::::This function initializes the classes graph::::::::
-function visitGraph(vertex:ClassVertex,graph:HashTable<ClassVertex>){
 
+////::::::::This function initializes the classes graph::::::::
+function visitGraph(graph:HashTable<ClassVertex>,curr_path:string[]){
+/*
+    var vertex = graph[class_name];
     if(vertex.visited){
+        console.log("HERE!!");
         return{
-            path: [],
+            path: class_name,
             cycle: true
         };
     }
     
     vertex.visited=true;
-    var hasCycle = false;
     var paths = [];
+    var hasCycle = false;
+    console.log(vertex.edges);
 
     for(var i=0;i<vertex.edges.length;i++){
         
-        var ret_edge_visit = visitGraph(graph[vertex.edges[i]],graph);
-        for(var j=0;j<ret_edge_visit.paths.length;j++){
-            var path=" -> "+vertex.edges[i]+ret_edge_visit.paths[j];
-            if(ret_edge_visit.cycle){
-                hasCycle = true;
-                paths.push(path);
-            }   
+        console.log(graph[vertex.edges[i]]);
+
+        var ret_edge_visit = visitGraph(vertex.edges[i],graph);
+        console.log(ret_edge_visit.path);
+        if(ret_edge_visit.cycle){
+            hasCycle=true;
+            var path=class_name+" -> "+ret_edge_visit.path;
+            paths.push(path);
         }
+        
+        setAllVerticesNotVisited(graph);
     }
 
     return {
-        paths:paths,
+        path:paths,
         cycle:hasCycle
     }
+*/
+    var vertex = graph[curr_path[curr_path.length-1]];
 
+    for(var i=0;i<vertex.edges.length;i++){
+        
+        if(graph[vertex.edges[i]].visited===1)
+            return curr_path;
+
+        else if(graph[vertex.edges[i]].visited===0){
+            curr_path.push(vertex.edges[i]);
+            graph[vertex.edges[i]].visited=1;
+            visitGraph(graph,curr_path)
+        }
+    }
+    graph[curr_path[curr_path.length-1]].visited=2;
+    curr_path.pop();
 }
 
 
 //::::::::Sets all vertices to non visited::::::::
 function setAllVerticesNotVisited(graph:HashTable<ClassVertex>){
     Object.keys(graph).forEach(function (class_name) {
-        graph[class_name].visited=false;
+        graph[class_name].visited=0;
     });
 }
 
@@ -230,24 +253,23 @@ function setAllVerticesNotVisited(graph:HashTable<ClassVertex>){
 //::::::::Returns the method and properties that will generate a cycle while generating the tests::::::::
 export function findCycles(program_info:ProgramInfo){
     var classes_graph:HashTable<ClassVertex> = {};
-    var cycles =[];
+    var cycles:string[][]=[];
 
     initializeClassesGraph(classes_graph,program_info);
 
     Object.keys(classes_graph).forEach(function (class_name) {
 
-        var ret_cycle=visitGraph(classes_graph[class_name],classes_graph);
-
-        for(var i=0;i<ret_cycle.paths.length;i++){
-            var start=class_name;
-            start=start+ret_cycle.paths[i];
-
-            if(ret_cycle.cycle)
-                cycles.push(start);
-        }   
-        
-        setAllVerticesNotVisited(classes_graph);
+        if(!(classes_graph[class_name].visited)){
+            var curr_path =[];
+            curr_path.push(class_name);
+            classes_graph[class_name].visited=1;
+            var ret_cycle=visitGraph(classes_graph,curr_path);
+            if(curr_path.length!==0){
+                cycles.push(ret_cycle);
+            }
+        }
     });
+    console.log(cycles);
 
     return cycles;
 }
