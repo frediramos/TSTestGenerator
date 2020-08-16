@@ -270,7 +270,6 @@ function generateFinalObjectAsrt(ret_var:string,ret_type: string) {
 
 //::::::::This function generates an assertion to check the return type ::::::::
 function generateFinalAsrt (ret_type:string, ret_var:string, program_info : finder.ProgramInfo) {
-  console.log(ret_type);
   
    switch(ret_type) {
       case "string" : return generateFinalStringAsrt(ret_var); 
