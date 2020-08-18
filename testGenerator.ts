@@ -8,8 +8,6 @@ class CosetteFunctions {
   number_creator:string = "symb_number"
   string_creator:string = "symb_string"
 
-
-
   numberCreator(x:string):string{
     return `${this.number_creator}("#${x}")`
   }
