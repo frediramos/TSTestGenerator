@@ -4,6 +4,26 @@ var fs = require('fs');
 import finder = require("./finder");
 import ts = require("typescript");
 
+class CosetteFunctions {
+  number_creator:string = "symb_number"
+  string_creator:string = "symb_string"
+
+
+
+  numberCreator(x:string):string{
+    return `${this.number_creator}("#${x}")`
+  }
+
+  stringCreator(x:string):string{
+    return `${this.string_creator}("#${x}")`
+  }
+
+  assertCreator(x:string,t:string):string{
+    return `Assert(typeof ${x} === "${t}");`
+  }
+}
+
+var cosFunc = new CosetteFunctions(); 
 
 //::::::::Turns ast into string::::::::
 function ast2str (e) {
@@ -65,7 +85,7 @@ var freshObjectVar = makeFreshObject("obj");
 //::::::::Function used to assign a string symbol to a variable::::::::
 function createStringSymbAssignment () { 
   var x = freshXVar(); 
-  var ret_str = `var ${x} = symb_string("#${x}")`; 
+  var ret_str = `var ${x} = ${cosFunc.stringCreator(x)}`; 
 
   return {
       stmts: [str2ast(ret_str)], 
@@ -77,7 +97,7 @@ function createStringSymbAssignment () {
 //::::::::Function used to assign a numerical symbol to a variable::::::::
 function createNumberSymbAssignment () { 
     var x = freshXVar(); 
-    var ret_str = `var ${x} = symb_number("#${x}")`; 
+    var ret_str = `var ${x} = ${cosFunc.numberCreator(x)}`; 
 
     return {
         stmts: [str2ast(ret_str)], 
@@ -252,25 +272,24 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
 
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
 function generateFinalStringAsrt(ret_var:string) { 
-    var ret_str = `assert(typeof ${ret_var} === "string");`; 
+    var ret_str = `Assert(typeof ${ret_var} === "string");`; 
     return str2ast(ret_str); 
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is a number:::::::: 
 function generateFinalNumberAsrt(ret_var:string) { 
-    var ret_str = `assert(typeof ${ret_var} === "number");`; 
+    var ret_str = `Assert(typeof ${ret_var} === "number");`; 
     return str2ast(ret_str); 
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
 function generateFinalObjectAsrt(ret_var:string,ret_type: string) { 
-  var ret_str = `assert(${ret_var} instanceof ${ret_type});`; 
+  var ret_str = `Assert(${ret_var} instanceof ${ret_type});`; 
   return str2ast(ret_str); 
 }
 
 //::::::::This function generates an assertion to check the return type ::::::::
 function generateFinalAsrt (ret_type:string, ret_var:string, program_info : finder.ProgramInfo) {
-  console.log(ret_type);
   
    switch(ret_type) {
       case "string" : return generateFinalStringAsrt(ret_var); 
