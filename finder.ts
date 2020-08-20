@@ -188,65 +188,22 @@ function initializeClassesGraph(classes_graph:HashTable<ClassVertex>,program_inf
 
 
 ////::::::::This function initializes the classes graph::::::::
-function visitGraph(graph:HashTable<ClassVertex>,curr_path:string[]){
-/*
-    var vertex = graph[class_name];
-    if(vertex.visited){
-        console.log("HERE!!");
-        return{
-            path: class_name,
-            cycle: true
-        };
-    }
-    
-    vertex.visited=true;
-    var paths = [];
-    var hasCycle = false;
-    console.log(vertex.edges);
-
-    for(var i=0;i<vertex.edges.length;i++){
-        
-        console.log(graph[vertex.edges[i]]);
-
-        var ret_edge_visit = visitGraph(vertex.edges[i],graph);
-        console.log(ret_edge_visit.path);
-        if(ret_edge_visit.cycle){
-            hasCycle=true;
-            var path=class_name+" -> "+ret_edge_visit.path;
-            paths.push(path);
-        }
-        
-        setAllVerticesNotVisited(graph);
-    }
-
-    return {
-        path:paths,
-        cycle:hasCycle
-    }
-*/
+function visitGraph(graph:HashTable<ClassVertex>,curr_path:string[],cycles:string[][]){
     var vertex = graph[curr_path[curr_path.length-1]];
 
     for(var i=0;i<vertex.edges.length;i++){
         
-        if(graph[vertex.edges[i]].visited===1)
-            return curr_path;
+        if(graph[vertex.edges[i]].visited===1){
+            cycles.push(curr_path);
+        }
 
         else if(graph[vertex.edges[i]].visited===0){
             curr_path.push(vertex.edges[i]);
             graph[vertex.edges[i]].visited=1;
-            visitGraph(graph,curr_path)
+            visitGraph(graph,curr_path,cycles)
         }
     }
     graph[curr_path[curr_path.length-1]].visited=2;
-    curr_path.pop();
-}
-
-
-//::::::::Sets all vertices to non visited::::::::
-function setAllVerticesNotVisited(graph:HashTable<ClassVertex>){
-    Object.keys(graph).forEach(function (class_name) {
-        graph[class_name].visited=0;
-    });
 }
 
 
@@ -259,16 +216,16 @@ export function findCycles(program_info:ProgramInfo){
 
     Object.keys(classes_graph).forEach(function (class_name) {
 
-        if(!(classes_graph[class_name].visited)){
+        if(classes_graph[class_name].visited!==2){
+
             var curr_path =[];
             curr_path.push(class_name);
             classes_graph[class_name].visited=1;
-            var ret_cycle=visitGraph(classes_graph,curr_path);
-            if(curr_path.length!==0){
-                cycles.push(ret_cycle);
-            }
+            visitGraph(classes_graph,curr_path,cycles);
+            classes_graph[class_name].visited=2;
         }
     });
+
     console.log(cycles);
 
     return cycles;

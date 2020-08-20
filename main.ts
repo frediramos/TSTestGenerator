@@ -8,7 +8,7 @@ var prog_info:finder.ProgramInfo = finder.finder(process.argv.slice(2));
 
 var cycles =finder.findCycles(prog_info);
 
-if(cycles.length!==0){
+if(cycles[0]!==undefined){
     console.log("Error: Cyclic object construction");
 }
 
