@@ -15,7 +15,7 @@ if(cycles[0]!==undefined){
 else{
     var test = tg.generateTests(prog_info);
 
-    fs.writeFile(process.argv.slice(2)+"-test.js",test, function(err){
+    fs.writeFile(process.argv.slice(2)[0].split(".")[0]+"-test.js",test, function(err){
         if(err) 
         return console.error(err);
     });
