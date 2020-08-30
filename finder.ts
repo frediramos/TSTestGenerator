@@ -226,7 +226,5 @@ export function findCycles(program_info:ProgramInfo){
         }
     });
 
-    console.log(cycles);
-
     return cycles;
 }

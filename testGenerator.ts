@@ -56,7 +56,7 @@ function str2ast (str:string) {
 
 
 //::::::::Function used to create the name of a variable with the respective number::::::::
-function makeFreshGenerator (prefix:string) {
+function makeFreshVariable (prefix:string) {
   var count = 0;
 
   return function () { 
@@ -65,7 +65,7 @@ function makeFreshGenerator (prefix:string) {
   }
 }
 
-var freshXVar = makeFreshGenerator("x"); 
+var freshXVar = makeFreshVariable("x"); 
 
 
 //::::::::Function used to create the name of a object with the respective number::::::::
@@ -79,6 +79,20 @@ function makeFreshObject (prefix:string) {
 }
 
 var freshObjectVar = makeFreshObject("obj");
+
+
+//::::::::Function used to create the name of a object with the respective number::::::::
+function makeFreshMockFunc (prefix:string) {
+  var count=0;
+
+  return function() {
+    count++;
+    return prefix+"_"+count;
+  }
+}
+
+var freshMockFuncVar = makeFreshMockFunc("mockFunc");
+
 
 //::::::::Function used to assign a string symbol to a variable::::::::
 function createStringSymbAssignment () { 
@@ -233,14 +247,31 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
 function generateMockFunction(arg_types:string[],ret_type:string,program_info:finder.ProgramInfo){
   var stmts = [];
   
-  var ret = createSymbAssignment(ret_type,program_info);
-  stmts = stmts.concat(ret.stmts);
+  var retval = createSymbAssignment(ret_type,program_info);
+  stmts = stmts.concat(retval.stmts);
+
+  var ret_str = `return ${retval.var};`;
+  var ret_ast = str2ast(ret_str);
+  stmts.push(ret_ast);
   
   var params = [];
   for(var i=0;i<arg_types.length;i++){
     params.push("x_"+i);
   }
 
+  var params_str = params.reduce(function (cur_str, prox) {
+    if (cur_str === "") return prox; 
+    else return cur_str + ", " + prox; 
+  },"");  
+
+  var body_block = generateBlock(stmts);
+  var body_str = ast2str(body_block);
+
+  var fun_name = freshMockFuncVar();
+  var fun_str= `function ${fun_name} (${params_str}) `+body_str;
+  
+  console.log(fun_str);
+  return str2ast(fun_str);
 }
 
 
@@ -255,7 +286,7 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
 
   //Function call creation
   var x =freshXVar();
-  var ret_str=`var ${x} = ${fun_name}(${ret_args.vars_str})`;
+  var ret_str = `var ${x} = ${fun_name}(${ret_args.vars_str})`;
   var ret_ast = str2ast(ret_str);
   stmts.push(ret_ast);  
 
@@ -308,7 +339,7 @@ function generateFinalAsrt (ret_type:string, ret_var:string, program_info : find
 function generateBlock(stmts) {
     return {
         type: "BlockStatement",
-        body: stmts 
+        body: stmts
     }
 }
 
@@ -319,6 +350,8 @@ export function generateTests(program_info : finder.ProgramInfo):string{
   var num_fun = 0;
   var tests=[];
   var number_test:finder.HashTable<number>={};
+
+  //console.log(generateMockFunction(["string"],"number",program_info));
 
   //Methods tests will be created
   Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
