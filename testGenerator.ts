@@ -175,7 +175,7 @@ function createIdentifier(x){
 function createFunctionDeclaration(method_name,stmts,method_test_number){
   return{
     type : "FunctionDeclaration",
-    id : createIdentifier("test"+method_test_number+"_"+method_name+" "),
+    id : createIdentifier("test"+method_test_number+"_"+method_name),
     params : [],
     body : generateBlock(stmts),
     generator : false,
@@ -189,56 +189,69 @@ function createFunctionDeclaration(method_name,stmts,method_test_number){
 function generateObject(class_name:string, program_info:finder.ProgramInfo){
   var symb_vars = [];
   var stmts = []; 
+  var objs = [];
 
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    symb_vars=[];
+
     for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
       var type_str=program_info.Checker.typeToString(program_info.ConstructorsInfo[class_name][i].arg_types[j])
       var ret = createSymbAssignment(type_str,program_info);
       stmts=stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 
     }
-  }
 
-  var obj = freshObjectVar();
-  var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
-    if (cur_str === "") return prox; 
-    else return cur_str + ", " + prox; 
-  },"");  
-  var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
-  var constructor_ret_stmt = str2ast(constructor_ret_str); 
-  stmts.push(constructor_ret_stmt); 
+    var obj = freshObjectVar();
+    objs[i] = obj;
+    var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
+      if (cur_str === "") return prox; 
+      else return cur_str + ", " + prox; 
+    },"");  
+    var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
+    var constructor_ret_stmt = str2ast(constructor_ret_str); 
+    stmts.push(constructor_ret_stmt); 
+  }
 
 
   return {
     stmts: stmts,
-    var:obj
+    var:objs[0],
+    vars:objs
   }
 }
 
 //::::::::This function generates the call of a method::::::::
 function generateMethodTest(class_name:string, method_name:string,method_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
-  var method_info=program_info.MethodsInfo[class_name][method_name];
+  var method_info = program_info.MethodsInfo[class_name][method_name];
 
   //Object creation
-  var ret_obj=generateObject(class_name,program_info);
+  var ret_obj = generateObject(class_name,program_info);
   stmts=stmts.concat(ret_obj.stmts);
   
 
   //Args symbols creation
-  var ret_args=createArgSymbols(method_info.arg_types,program_info);
+  var ret_args = createArgSymbols(method_info.arg_types,program_info);
   stmts=stmts.concat(ret_args.stmts);
 
   //Method call creation
-  var x =freshXVar();
-  var ret_str=`var ${x} = ${ret_obj.var}.${method_name}(${ret_args.vars_str})`;
-  var ret_ast = str2ast(ret_str);
-  stmts.push(ret_ast);
-  
+  var ret_vars = [];
+  for(var i = 0;i<ret_obj.vars.length;i++){
+    var x = freshXVar();
+    ret_vars[i]=x;
+    var ret_str = `var ${x} = ${ret_obj.vars[i]}.${method_name}(${ret_args.vars_str})`;
+    var ret_ast = str2ast(ret_str);
+    stmts.push(ret_ast);
+  }
+
   //Final assert creation
-  var method_return_str=program_info.Checker.typeToString(method_info.ret_type)
-  var ret_asrt=generateFinalAsrt(method_return_str,x,program_info);
-  stmts.push(ret_asrt);
+  var method_return_str = program_info.Checker.typeToString(method_info.ret_type);
+  
+  for(var i = 0;i<ret_vars.length;i++){
+    var ret_asrt = generateFinalAsrt(method_return_str,ret_vars[i],program_info);
+    stmts.push(ret_asrt);
+  }
+  
 
   return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
@@ -268,7 +281,7 @@ function generateMockFunction(arg_types:string[],ret_type:string,program_info:fi
   var body_str = ast2str(body_block);
 
   var fun_name = freshMockFuncVar();
-  var fun_str= `function ${fun_name} (${params_str}) `+body_str;
+  var fun_str= `function ${fun_name}(${params_str}) `+body_str;
   
   console.log(fun_str);
   return str2ast(fun_str);
@@ -364,7 +377,7 @@ export function generateTests(program_info : finder.ProgramInfo):string{
 
       var ret = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
       tests.push(ret);
-      var method_call_str ="test"+number_test[method_name]+"_"+method_name+" ()";
+      var method_call_str ="test"+number_test[method_name]+"_"+method_name+"()";
       var method_call = str2ast(method_call_str);
       tests.push(method_call);
 
@@ -384,7 +397,7 @@ export function generateTests(program_info : finder.ProgramInfo):string{
 
     var ret = generateFunctionTest(fun_name,number_test[fun_name],program_info);
     tests.push(ret);
-    var fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+" ()";
+    var fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"()";
     var fun_call = str2ast(fun_call_str);
     tests.push(fun_call);
 
@@ -395,5 +408,5 @@ export function generateTests(program_info : finder.ProgramInfo):string{
 
   var test_block = generateBlock(tests);
   var test_str = ast2str(test_block);
-  return "function Test () "+test_str;
+  return "function Test() "+test_str;
 }
