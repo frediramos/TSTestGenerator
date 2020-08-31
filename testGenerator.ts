@@ -4,16 +4,18 @@ var fs = require('fs');
 import finder = require("./finder");
 import ts = require("typescript");
 
+
+//Class used to store the Cosette functions
 class CosetteFunctions {
   number_creator:string = "symb_number"
   string_creator:string = "symb_string"
 
   numberCreator(x:string):string{
-    return `${this.number_creator}("#${x}")`
+    return `${this.number_creator}(${x})`
   }
 
   stringCreator(x:string):string{
-    return `${this.string_creator}("#${x}")`
+    return `${this.string_creator}(${x})`
   }
 
   assertCreator(x:string,t:string):string{
@@ -22,6 +24,12 @@ class CosetteFunctions {
 }
 
 var cosFunc = new CosetteFunctions(); 
+
+
+//Constants created for string manipulation later
+const enterFunc = str2ast("$Enter$()");
+const spaceStr = "$Space$";
+
 
 //::::::::Turns ast into string::::::::
 function ast2str (e) {
@@ -207,9 +215,11 @@ function generateObject(class_name:string, program_info:finder.ProgramInfo){
       if (cur_str === "") return prox; 
       else return cur_str + ", " + prox; 
     },"");  
+
     var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
     var constructor_ret_stmt = str2ast(constructor_ret_str); 
-    stmts.push(constructor_ret_stmt); 
+    stmts.push(constructor_ret_stmt);
+    stmts.push(enterFunc); 
   }
 
 
@@ -234,25 +244,23 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   var ret_args = createArgSymbols(method_info.arg_types,program_info);
   stmts=stmts.concat(ret_args.stmts);
 
-  //Method call creation
-  var ret_vars = [];
+  var method_return_str = program_info.Checker.typeToString(method_info.ret_type);
+
   for(var i = 0;i<ret_obj.vars.length;i++){
+
+    //Method call creation
     var x = freshXVar();
-    ret_vars[i]=x;
     var ret_str = `var ${x} = ${ret_obj.vars[i]}.${method_name}(${ret_args.vars_str})`;
     var ret_ast = str2ast(ret_str);
     stmts.push(ret_ast);
-  }
-
-  //Final assert creation
-  var method_return_str = program_info.Checker.typeToString(method_info.ret_type);
-  
-  for(var i = 0;i<ret_vars.length;i++){
-    var ret_asrt = generateFinalAsrt(method_return_str,ret_vars[i],program_info);
+    
+    //Final assert creation
+    var ret_asrt = generateFinalAsrt(method_return_str,x,program_info);
     stmts.push(ret_asrt);
+
+    stmts.push(enterFunc); 
   }
   
-
   return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
 
@@ -301,12 +309,13 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   var x =freshXVar();
   var ret_str = `var ${x} = ${fun_name}(${ret_args.vars_str})`;
   var ret_ast = str2ast(ret_str);
-  stmts.push(ret_ast);  
+  stmts.push(ret_ast); 
 
   //Final assert creation
   var function_return_str=program_info.Checker.typeToString(function_info.ret_type)
   var ret_asrt=generateFinalAsrt(function_return_str,x,program_info);
   stmts.push(ret_asrt);
+  stmts.push(enterFunc); 
 
   return createFunctionDeclaration(fun_name,stmts,fun_number_test);
 }
@@ -374,12 +383,20 @@ export function generateTests(program_info : finder.ProgramInfo):string{
         number_test[method_name]=1;
       else
         number_test[method_name]++;
+      
+      var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+spaceStr+"s"+spaceStr+"method-"+method_name+"Comment2()";
+      tests.push(str2ast(comment));
 
       var ret = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
       tests.push(ret);
+
+      tests.push(enterFunc); 
+      
       var method_call_str ="test"+number_test[method_name]+"_"+method_name+"()";
       var method_call = str2ast(method_call_str);
       tests.push(method_call);
+      
+      tests.push(enterFunc); 
 
       fun_names[num_fun]=method_call_str;
       num_fun++;
@@ -395,11 +412,19 @@ export function generateTests(program_info : finder.ProgramInfo):string{
     else
       number_test[fun_name]++;
 
+    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+"function-"+fun_name+"Comment2()";
+    tests.push(str2ast(comment));
+
     var ret = generateFunctionTest(fun_name,number_test[fun_name],program_info);
     tests.push(ret);
+
+    tests.push(enterFunc); 
+    
     var fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"()";
     var fun_call = str2ast(fun_call_str);
     tests.push(fun_call);
+    
+    tests.push(enterFunc); 
 
     fun_names[num_fun]=fun_call_str;
     num_fun++;
@@ -408,5 +433,12 @@ export function generateTests(program_info : finder.ProgramInfo):string{
 
   var test_block = generateBlock(tests);
   var test_str = ast2str(test_block);
-  return "function Test() "+test_str;
+
+  //Manipulation of test file string to create enters and comments
+  var test_str_ret1 = test_str.split("$Enter$();").join("");
+  var test_str_ret2 = test_str_ret1.split("Comment1").join("/* ");
+  var test_str_ret3 = test_str_ret2.split("Comment2();").join(" */");
+  var test_str_ret4 = test_str_ret3.split("$Space$").join(" ");
+
+  return "function Test() "+test_str_ret4;
 }
