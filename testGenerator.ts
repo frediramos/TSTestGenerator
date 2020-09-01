@@ -442,5 +442,5 @@ export function generateTests(program_info : finder.ProgramInfo):string{
   var test_str_ret3 = test_str_ret2.split("Comment2();").join(" */");
   var test_str_ret4 = test_str_ret3.split("$Space$").join(" ");
 
-  return "/* Function that will run the tests functions */\nfunction Test() "+test_str_ret4;
+  return "/*\n=====Function that will run the tests functions=====\n*/\nfunction Test() "+test_str_ret4+"\n\nTest();";
 }
