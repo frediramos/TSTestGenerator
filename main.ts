@@ -2,10 +2,11 @@ import * as ts from "typescript";
 import * as fs from "fs";
 import finder = require("./finder");
 import tg = require("./testGenerator");
-const { exec } = require('child_process');
+const { execSync } = require("child_process");
 
 //Compiling file that is being tested
-exec('tsc '+process.argv.slice(2)[0], (err, stdout, stderr) => {
+var command = "tsc "+process.argv.slice(2)[0];
+execSync(command, (err, stdout, stderr) => {
 if (err) return;
 });
 

@@ -29,6 +29,8 @@ var cosFunc = new CosetteFunctions();
 //Constants created for string manipulation later
 const enterFunc = str2ast("$Enter$()");
 const spaceStr = "$Space$";
+const colonsStr = "$Colons$";
+const apostropheStr = "$Apostrophe$";
 
 
 //::::::::Turns ast into string::::::::
@@ -56,10 +58,24 @@ function ast2str (e) {
 
 
 //::::::::Turns string into ast::::::::
-function str2ast (str:string) { 
+function str2ast (str:string) {
   var ast = esprima.parse (str); 
 
   return ast.body[0];
+}
+
+
+//::::::::Function used to create some special characters in the output file::::::::
+function stringManipulation(test_str:string):string{
+
+  var test_str_ret1 = test_str.split("$Enter$();").join("");
+  var test_str_ret2 = test_str_ret1.split("Comment1").join("/* ");
+  var test_str_ret3 = test_str_ret2.split("Comment2();").join(" */");
+  var test_str_ret4 = test_str_ret3.split("$Space$").join(" ");
+  var test_str_ret5 = test_str_ret4.split("$Colons$").join(": ");
+  var test_str_ret6 = test_str_ret5.split("$Apostrophe$").join("'");
+
+  return test_str_ret6;
 }
 
 
@@ -74,6 +90,18 @@ function makeFreshVariable (prefix:string) {
 }
 
 var freshXVar = makeFreshVariable("x"); 
+
+//::::::::Function used to create the name of a variable with the respective number::::::::
+function makeFreshAssertVariable (prefix:string) {
+  var count = 0;
+
+  return function () { 
+     count++;  
+     return prefix + "_" + count;      
+  }
+}
+
+var freshAssertVar = makeFreshAssertVariable("a"); 
 
 
 //::::::::Function used to create the name of a object with the respective number::::::::
@@ -123,8 +151,44 @@ function createNumberSymbAssignment () {
         stmts: [str2ast(ret_str)], 
         var: x 
     } 
+}
+
+
+//::::::::This function generates the call of a constructor with symbolic parameters::::::::
+function createObjectSymbParams(class_name:string, program_info:finder.ProgramInfo){
+  var symb_vars = [];
+  var stmts = []; 
+  var objs = [];
+
+  for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    symb_vars=[];
+
+    for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
+      var type_str=program_info.Checker.typeToString(program_info.ConstructorsInfo[class_name][i].arg_types[j])
+      var ret = createSymbAssignment(type_str,program_info);
+      stmts=stmts.concat(ret.stmts); 
+      symb_vars.push(ret.var); 
+    }
+
+    var obj = freshObjectVar();
+    objs[i] = obj;
+    var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
+      if (cur_str === "") return prox; 
+      else return cur_str + ", " + prox; 
+    },"");  
+
+    var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
+    var constructor_ret_stmt = str2ast(constructor_ret_str); 
+    stmts.push(constructor_ret_stmt);
+    stmts.push(enterFunc); 
   }
 
+  return {
+    stmts: stmts,
+    var:objs[0],
+    vars:objs
+  }
+}
 
 //::::::::Function used to make a symbol assignment to a variable::::::::
 function createSymbAssignment (arg_type:string,program_info:finder.ProgramInfo) { 
@@ -136,7 +200,7 @@ function createSymbAssignment (arg_type:string,program_info:finder.ProgramInfo) 
 
     default:
       if (program_info.hasClass(arg_type)) {
-        return  generateObject(arg_type,program_info);
+        return  createObjectSymbParams(arg_type,program_info);
       } else {
         throw new Error ("createSymbAssignment: Unsupported type");
       }
@@ -193,8 +257,8 @@ function createFunctionDeclaration(method_name,stmts,method_test_number){
 }
 
 
-//::::::::This function generates the call of a constructor with symbolic parameters::::::::
-function generateObject(class_name:string, program_info:finder.ProgramInfo){
+//::::::::This function generates the call of a method::::::::
+function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
   var symb_vars = [];
   var stmts = []; 
   var objs = [];
@@ -222,21 +286,17 @@ function generateObject(class_name:string, program_info:finder.ProgramInfo){
     stmts.push(enterFunc); 
   }
 
-
-  return {
-    stmts: stmts,
-    var:objs[0],
-    vars:objs
-  }
+  return createFunctionDeclaration(class_name+"_constructors",stmts,"");
 }
 
-//::::::::This function generates the call of a method::::::::
+
+//::::::::This function generates a method test function:::::::
 function generateMethodTest(class_name:string, method_name:string,method_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
   var method_info = program_info.MethodsInfo[class_name][method_name];
 
   //Object creation
-  var ret_obj = generateObject(class_name,program_info);
+  var ret_obj = createObjectSymbParams(class_name,program_info);
   stmts=stmts.concat(ret_obj.stmts);
   
 
@@ -256,13 +316,15 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
     
     //Final assert creation
     var ret_asrt = generateFinalAsrt(method_return_str,x,program_info);
-    stmts.push(ret_asrt);
+    stmts.push(ret_asrt.stmt);
+    stmts.push(str2ast(`Assert(${ret_asrt.var})`));
 
     stmts.push(enterFunc); 
   }
   
   return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
+
 
 //::::::::This function generates a mock function from type::::::::
 function generateMockFunction(arg_types:string[],ret_type:string,program_info:finder.ProgramInfo){
@@ -296,7 +358,7 @@ function generateMockFunction(arg_types:string[],ret_type:string,program_info:fi
 }
 
 
-//::::::::This function generates the call of a function::::::::
+//::::::::This function generates a function test function::::::::
 function generateFunctionTest(fun_name:string,fun_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
   var function_info=program_info.FunctionsInfo[fun_name];
@@ -309,12 +371,14 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   var x =freshXVar();
   var ret_str = `var ${x} = ${fun_name}(${ret_args.vars_str})`;
   var ret_ast = str2ast(ret_str);
-  stmts.push(ret_ast); 
-
+  stmts.push(ret_ast);  
+  
   //Final assert creation
   var function_return_str=program_info.Checker.typeToString(function_info.ret_type)
   var ret_asrt=generateFinalAsrt(function_return_str,x,program_info);
-  stmts.push(ret_asrt);
+  stmts.push(ret_asrt.stmt);
+
+  stmts.push(str2ast(`Assert(${ret_asrt.var})`));
   stmts.push(enterFunc); 
 
   return createFunctionDeclaration(fun_name,stmts,fun_number_test);
@@ -323,20 +387,35 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
 
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
 function generateFinalStringAsrt(ret_var:string) { 
-    var ret_str = `Assert(typeof ${ret_var} === "string");`; 
-    return str2ast(ret_str); 
+    var x = freshAssertVar();
+    
+    var ret_str = `var ${x} = typeof ${ret_var} === "string";`; 
+    return {
+      stmt:str2ast(ret_str),
+      var:x
+    } 
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is a number:::::::: 
 function generateFinalNumberAsrt(ret_var:string) { 
-    var ret_str = `Assert(typeof ${ret_var} === "number");`; 
-    return str2ast(ret_str); 
+  var x = freshAssertVar();
+
+    var ret_str = `var ${x} = typeof ${ret_var} === "number";`; 
+    return {
+      stmt:str2ast(ret_str),
+      var:x
+    }
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
 function generateFinalObjectAsrt(ret_var:string,ret_type: string) { 
-  var ret_str = `Assert(${ret_var} instanceof ${ret_type});`; 
-  return str2ast(ret_str); 
+  var x = freshAssertVar();
+
+  var ret_str = `var ${x} = ${ret_var} instanceof ${ret_type};`; 
+  return {
+    stmt:str2ast(ret_str),
+    var:x
+  }
 }
 
 //::::::::This function generates an assertion to check the return type ::::::::
@@ -377,6 +456,32 @@ export function generateTests(program_info : finder.ProgramInfo):string{
 
   tests.push(enterFunc); 
 
+  //Constructors tests will be created
+  Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
+
+    if(number_test[class_name]===undefined)
+      number_test[class_name]=1;
+    else
+      number_test[class_name]++;
+
+    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"constructors"+"Comment2()";
+    tests.push(str2ast(comment));
+
+    var ret = generateConstructorTests(class_name,program_info);
+    tests.push(ret);
+
+    tests.push(enterFunc); 
+
+    var constructor_call_str ="test_"+class_name+"_constructors()";
+    var constructor_call = str2ast(constructor_call_str);
+    tests.push(constructor_call);
+    
+    tests.push(enterFunc); 
+
+    fun_names[num_fun]=constructor_call_str;
+    num_fun++;
+  });
+
   //Methods tests will be created
   Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
     Object.keys(program_info.MethodsInfo[class_name]).forEach(function (method_name){
@@ -386,7 +491,7 @@ export function generateTests(program_info : finder.ProgramInfo):string{
       else
         number_test[method_name]++;
       
-      var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+spaceStr+"s"+spaceStr+"method-"+method_name+"Comment2()";
+      var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"method"+colonsStr+method_name+"Comment2()";
       tests.push(str2ast(comment));
 
       var ret = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
@@ -402,9 +507,9 @@ export function generateTests(program_info : finder.ProgramInfo):string{
 
       fun_names[num_fun]=method_call_str;
       num_fun++;
-
     });
   });
+
 
   //Functions tests will be created
   Object.keys(program_info.FunctionsInfo).forEach(function (fun_name) { 
@@ -414,7 +519,7 @@ export function generateTests(program_info : finder.ProgramInfo):string{
     else
       number_test[fun_name]++;
 
-    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+"function-"+fun_name+"Comment2()";
+    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+"function"+colonsStr+fun_name+"Comment2()";
     tests.push(str2ast(comment));
 
     var ret = generateFunctionTest(fun_name,number_test[fun_name],program_info);
@@ -436,11 +541,8 @@ export function generateTests(program_info : finder.ProgramInfo):string{
   var test_block = generateBlock(tests);
   var test_str = ast2str(test_block);
 
-  //Manipulation of test file string to create enters and comments
-  var test_str_ret1 = test_str.split("$Enter$();").join("");
-  var test_str_ret2 = test_str_ret1.split("Comment1").join("/* ");
-  var test_str_ret3 = test_str_ret2.split("Comment2();").join(" */");
-  var test_str_ret4 = test_str_ret3.split("$Space$").join(" ");
+  //Manipulation of test file string to create special characters
+  var test_str_final = stringManipulation(test_str);
 
-  return "/*\n=====Function that will run the tests functions=====\n*/\nfunction Test() "+test_str_ret4+"\n\nTest();";
+  return "/*\n=====Function that will run the tests functions=====\n*/\nfunction Test() "+test_str_final+"\n\nTest();";
 }
