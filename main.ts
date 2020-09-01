@@ -13,9 +13,18 @@ if(cycles[0]!==undefined){
 }
 
 else{
+
+    var file_code:string;
+    try {
+        file_code = fs.readFileSync(process.argv.slice(2)[0], 'utf8');
+    } catch(e) {
+        console.log('Error:', e.stack);
+    }
+
+
     var test = tg.generateTests(prog_info);
 
-    fs.writeFile(process.argv.slice(2)[0].split(".")[0]+"-test.js",test, function(err){
+    fs.writeFile(process.argv.slice(2)[0].split(".")[0]+"-test.js",file_code+"\n\n\n"+test, function(err){
         if(err) 
         return console.error(err);
     });
