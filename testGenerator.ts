@@ -375,6 +375,8 @@ export function generateTests(program_info : finder.ProgramInfo):string{
 
   //console.log(generateMockFunction(["string"],"number",program_info));
 
+  tests.push(enterFunc); 
+
   //Methods tests will be created
   Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
     Object.keys(program_info.MethodsInfo[class_name]).forEach(function (method_name){
@@ -440,5 +442,5 @@ export function generateTests(program_info : finder.ProgramInfo):string{
   var test_str_ret3 = test_str_ret2.split("Comment2();").join(" */");
   var test_str_ret4 = test_str_ret3.split("$Space$").join(" ");
 
-  return "function Test() "+test_str_ret4;
+  return "/* Function that will run the tests functions */\nfunction Test() "+test_str_ret4;
 }
