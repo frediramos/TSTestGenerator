@@ -10,6 +10,12 @@ execSync(command, (err, stdout, stderr) => {
 if (err) return;
 });
 
+//Making the directory for the function's tests
+var command_tests_dir = "mkdir Test_"+process.argv.slice(2)[0].split(".")[0];
+execSync(command_tests_dir, (err, stdout, stderr) => {
+if (err) return;
+});
+
 //Retrieving the program information using the finder
 var prog_info:finder.ProgramInfo = finder.finder(process.argv.slice(2));
 
