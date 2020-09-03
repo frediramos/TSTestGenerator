@@ -263,6 +263,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
   var stmts = []; 
   var objs = [];
 
+  stmts.push(enterFunc);
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
     symb_vars=[];
 
@@ -283,7 +284,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
     var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
     var constructor_ret_stmt = str2ast(constructor_ret_str); 
     stmts.push(constructor_ret_stmt);
-    stmts.push(enterFunc); 
+    stmts.push(enterFunc);
   }
 
   return createFunctionDeclaration(class_name+"_constructors",stmts,"");
@@ -294,6 +295,8 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
 function generateMethodTest(class_name:string, method_name:string,method_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
   var method_info = program_info.MethodsInfo[class_name][method_name];
+
+  stmts.push(enterFunc);
 
   //Object creation
   var ret_obj = createObjectSymbParams(class_name,program_info);
@@ -362,6 +365,8 @@ function generateMockFunction(arg_types:string[],ret_type:string,program_info:fi
 function generateFunctionTest(fun_name:string,fun_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
   var function_info=program_info.FunctionsInfo[fun_name];
+
+  stmts.push(enterFunc);
 
   //Args symbols creation
   var ret_args = createArgSymbols(function_info.arg_types,program_info);
@@ -445,12 +450,13 @@ function generateBlock(stmts) {
 }
 
 //::::::::This fucntion is responsible for genarating the program tests::::::::
-export function generateTests(program_info : finder.ProgramInfo):string{
+export function generateTests(program_info : finder.ProgramInfo,output_dir:string, js_file:string):string{
 
   var fun_names = [];
   var num_fun = 0;
-  var tests=[];
-  var number_test:finder.HashTable<number>={};
+  var tests = [];
+  var curr_test = "";
+  var number_test:finder.HashTable<number> = {};
 
   //console.log(generateMockFunction(["string"],"number",program_info));
 
@@ -459,24 +465,31 @@ export function generateTests(program_info : finder.ProgramInfo):string{
   //Constructors tests will be created
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
 
+    curr_test = "";
+
     if(number_test[class_name]===undefined)
       number_test[class_name]=1;
     else
       number_test[class_name]++;
 
-    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"constructors"+"Comment2()";
+    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"constructors"+"Comment2();";
     tests.push(str2ast(comment));
+    curr_test+=comment+"\n";
 
     var ret = generateConstructorTests(class_name,program_info);
     tests.push(ret);
+    curr_test+=ast2str(ret)+"\n";
 
-    tests.push(enterFunc); 
+    tests.push(enterFunc);
 
     var constructor_call_str ="test_"+class_name+"_constructors()";
     var constructor_call = str2ast(constructor_call_str);
     tests.push(constructor_call);
+    curr_test+="\n"+constructor_call_str;
     
     tests.push(enterFunc); 
+
+    fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+stringManipulation (curr_test));
 
     fun_names[num_fun]=constructor_call_str;
     num_fun++;
@@ -486,24 +499,31 @@ export function generateTests(program_info : finder.ProgramInfo):string{
   Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
     Object.keys(program_info.MethodsInfo[class_name]).forEach(function (method_name){
 
+      curr_test="";
+
       if(number_test[method_name]===undefined)
         number_test[method_name]=1;
       else
         number_test[method_name]++;
       
-      var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"method"+colonsStr+method_name+"Comment2()";
+      var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"method"+colonsStr+method_name+"Comment2();";
       tests.push(str2ast(comment));
+      curr_test+=comment+"\n";
 
       var ret = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
       tests.push(ret);
+      curr_test+=ast2str(ret)+"\n";
 
       tests.push(enterFunc); 
       
       var method_call_str ="test"+number_test[method_name]+"_"+method_name+"()";
       var method_call = str2ast(method_call_str);
       tests.push(method_call);
+      curr_test+="\n"+method_call_str;
       
       tests.push(enterFunc); 
+
+      fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
       fun_names[num_fun]=method_call_str;
       num_fun++;
@@ -514,24 +534,31 @@ export function generateTests(program_info : finder.ProgramInfo):string{
   //Functions tests will be created
   Object.keys(program_info.FunctionsInfo).forEach(function (fun_name) { 
 
+    curr_test="";
+
     if(number_test[fun_name]===undefined)
       number_test[fun_name]=1;
     else
       number_test[fun_name]++;
 
-    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+"function"+colonsStr+fun_name+"Comment2()";
+    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+"function"+colonsStr+fun_name+"Comment2();";
     tests.push(str2ast(comment));
+    curr_test += comment+"\n";
 
     var ret = generateFunctionTest(fun_name,number_test[fun_name],program_info);
     tests.push(ret);
+    curr_test += ast2str(ret)+"\n";
 
     tests.push(enterFunc); 
     
     var fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"()";
     var fun_call = str2ast(fun_call_str);
     tests.push(fun_call);
+    curr_test += "\n"+fun_call_str;
     
     tests.push(enterFunc); 
+
+    fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
     fun_names[num_fun]=fun_call_str;
     num_fun++;
