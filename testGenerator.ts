@@ -194,11 +194,16 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
 //::::::::Function used to make a symbol assignment to a variable::::::::
 function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo) { 
 
-  var type_str=program_info.Checker.typeToString(arg_type); 
-  var parameters = program_info.Checker.getSignaturesOfType(arg_type, null); 
+  var type_str = program_info.Checker.typeToString(arg_type);
 
-  console.log("\n\n\n\nfirst: "+parameters);
-  console.log("\n\n\n\nsecond: "+type_str);
+  for (const signature of arg_type.getCallSignatures()){
+    for(const parameter of signature.parameters){
+      var parameter_type = program_info.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!)
+      console.log("Parameter type: "+program_info.Checker.typeToString(parameter_type));
+    }
+    console.log("Return type: "+program_info.Checker.typeToString(signature.getReturnType()));
+  }
+  
 
   switch (type_str) {
     case "string" : return createStringSymbAssignment(); 
