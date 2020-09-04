@@ -3,6 +3,8 @@ var escodegen = require('escodegen');
 var fs = require('fs');
 import finder = require("./finder");
 import ts = require("typescript");
+import { number } from "yargs";
+import { checkServerIdentity } from "tls";
 
 
 //Class used to store the Cosette functions
@@ -163,9 +165,8 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
     symb_vars=[];
 
-    for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
-      var type_str=program_info.Checker.typeToString(program_info.ConstructorsInfo[class_name][i].arg_types[j])
-      var ret = createSymbAssignment(type_str,program_info);
+    for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) {
+      var ret = createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
       stmts=stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 
     }
@@ -191,16 +192,22 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
 }
 
 //::::::::Function used to make a symbol assignment to a variable::::::::
-function createSymbAssignment (arg_type:string,program_info:finder.ProgramInfo) { 
+function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo) { 
 
-  switch (arg_type) {
+  var type_str=program_info.Checker.typeToString(arg_type); 
+  var parameters = program_info.Checker.getSignaturesOfType(arg_type, null); 
+
+  console.log("\n\n\n\nfirst: "+parameters);
+  console.log("\n\n\n\nsecond: "+type_str);
+
+  switch (type_str) {
     case "string" : return createStringSymbAssignment(); 
 
     case "number" : return createNumberSymbAssignment();
 
     default:
-      if (program_info.hasClass(arg_type)) {
-        return  createObjectSymbParams(arg_type,program_info);
+      if (program_info.hasClass(type_str)) {
+        return  createObjectSymbParams(type_str,program_info);
       } else {
         throw new Error ("createSymbAssignment: Unsupported type");
       }
@@ -213,9 +220,8 @@ function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo){
   var symb_vars = [];
   var stmts = []; 
 
-  for (var i=0; i<arg_types.length; i++) { 
-    var type_str=program_info.Checker.typeToString(arg_types[i]);
-    var ret = createSymbAssignment(type_str,program_info);
+  for (var i=0; i<arg_types.length; i++) {
+    var ret = createSymbAssignment(arg_types[i],program_info);
     stmts = stmts.concat(ret.stmts); 
     symb_vars.push(ret.var); 
   }
@@ -268,8 +274,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
     symb_vars=[];
 
     for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
-      var type_str=program_info.Checker.typeToString(program_info.ConstructorsInfo[class_name][i].arg_types[j])
-      var ret = createSymbAssignment(type_str,program_info);
+      var ret = createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
       stmts=stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 
     }
@@ -328,9 +333,14 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
 
+/*
+function f (g : (a:number, b:number) => number) : number{
+  return 2;
+}
+*/
 
 //::::::::This function generates a mock function from type::::::::
-function generateMockFunction(arg_types:string[],ret_type:string,program_info:finder.ProgramInfo){
+function generateMockFunction(arg_types:string[],ret_type:ts.Type,program_info:finder.ProgramInfo){
   var stmts = [];
   
   var retval = createSymbAssignment(ret_type,program_info);
