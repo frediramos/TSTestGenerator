@@ -195,13 +195,15 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
 function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo) { 
 
   var type_str = program_info.Checker.typeToString(arg_type);
+  var params = [];
+  var ret_type;
 
   for (const signature of arg_type.getCallSignatures()){
     for(const parameter of signature.parameters){
-      var parameter_type = program_info.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!)
-      console.log("Parameter type: "+program_info.Checker.typeToString(parameter_type));
+      var parameter_type = program_info.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!);
+      params.push(parameter_type);
     }
-    console.log("Return type: "+program_info.Checker.typeToString(signature.getReturnType()));
+    ret_type = signature.getReturnType();
   }
   
 
@@ -213,6 +215,8 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo)
     default:
       if (program_info.hasClass(type_str)) {
         return  createObjectSymbParams(type_str,program_info);
+      } else if(type_str.includes("=>")){
+        return generateMockFunction(params, ret_type, program_info)
       } else {
         throw new Error ("createSymbAssignment: Unsupported type");
       }
@@ -338,40 +342,25 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
 
-/*
-function f (g : (a:number, b:number) => number) : number{
-  return 2;
-}
-*/
 
-//::::::::This function generates a mock function from type::::::::
-function generateMockFunction(arg_types:string[],ret_type:ts.Type,program_info:finder.ProgramInfo){
+//::::::::This function generates a mock function used as other function argument::::::::
+function generateMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:finder.ProgramInfo){
   var stmts = [];
   
-  var retval = createSymbAssignment(ret_type,program_info);
-  stmts = stmts.concat(retval.stmts);
-
-  var ret_str = `return ${retval.var};`;
+  var ret_val = createSymbAssignment(ret_type,program_info);
+  var ret_str = ast2str(ret_val.stmts[0])+` return ${ret_val.var};`;
   var ret_ast = str2ast(ret_str);
   stmts.push(ret_ast);
   
-  var params = [];
-  for(var i=0;i<arg_types.length;i++){
-    params.push("x_"+i);
-  }
-
-  var params_str = params.reduce(function (cur_str, prox) {
-    if (cur_str === "") return prox; 
-    else return cur_str + ", " + prox; 
-  },"");  
+  var ret_args = createArgSymbols(arg_types,program_info);
+  stmts = stmts.concat(ret_args.stmts);
 
   var body_block = generateBlock(stmts);
   var body_str = ast2str(body_block);
 
   var fun_name = freshMockFuncVar();
-  var fun_str= `function ${fun_name}(${params_str}) `+body_str;
+  var fun_str= `function ${fun_name} (${ret_args.vars_str})`+body_str;
   
-  console.log(fun_str);
   return str2ast(fun_str);
 }
 
