@@ -348,20 +348,20 @@ function generateMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:
   var stmts = [];
   
   var ret_val = createSymbAssignment(ret_type,program_info);
-  var ret_str = ast2str(ret_val.stmts[0])+` return ${ret_val.var};`;
-  var ret_ast = str2ast(ret_str);
-  stmts.push(ret_ast);
   
   var ret_args = createArgSymbols(arg_types,program_info);
   stmts = stmts.concat(ret_args.stmts);
-
-  var body_block = generateBlock(stmts);
-  var body_str = ast2str(body_block);
-
-  var fun_name = freshMockFuncVar();
-  var fun_str= `function ${fun_name} (${ret_args.vars_str})`+body_str;
   
-  return str2ast(fun_str);
+  var fun_name = freshMockFuncVar();
+  var fun_str= `function ${fun_name} (${ret_args.vars_str}) {
+  ${ast2str(ret_val.stmts[0])}
+  return ${ret_val.var};
+  }`;
+  
+  return {
+    stmts: [str2ast(fun_str)],
+    var: fun_name
+  }
 }
 
 
