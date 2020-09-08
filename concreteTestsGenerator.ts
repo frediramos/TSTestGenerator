@@ -14,8 +14,8 @@ for(var i = 0; i<json.models.length;i++){
         test_code = test_code.split(`symb_string(${var_name})`).join(json.models[i][var_name]);
 
     });
-    test_code = test_code.split("symb_number(x_").join("");
-    test_code = test_code.split("symb_string(x_") .join("");
+    test_code = test_code.split(/symb_number\(x_\d+\);/).join("0;");
+    test_code = test_code.split(/symb_string\(x_\d+\);/) .join("0;");
     fs.writeFileSync(test_path.split("/")[0]+"/concrete_tests/concrete_"+test_path.split("/")[1].split(".")[0]+(i+1)+".js",test_code);
 
 }
