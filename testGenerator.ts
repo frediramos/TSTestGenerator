@@ -80,6 +80,11 @@ function stringManipulation(test_str:string):string{
   return test_str_ret6;
 }
 
+function isFunctionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
+  var arg_str =program_info.Checker.typeToString(arg_type);
+  return arg_str.includes("=>");
+}
+
 
 //::::::::Function used to create the name of a variable with the respective number::::::::
 function makeFreshVariable (prefix:string) {
@@ -191,21 +196,27 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
   }
 }
 
-//::::::::Function used to make a symbol assignment to a variable::::::::
-function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo) { 
-
-  var type_str = program_info.Checker.typeToString(arg_type);
+function getFunctionElements(arg_type:ts.Type,program_info:finder.ProgramInfo){
   var params = [];
-  var ret_type;
 
   for (const signature of arg_type.getCallSignatures()){
     for(const parameter of signature.parameters){
       var parameter_type = program_info.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!);
       params.push(parameter_type);
     }
-    ret_type = signature.getReturnType();
+    var ret_type = signature.getReturnType();
   }
-  
+
+  return {
+    params:params,
+    ret: ret_type
+  }
+}
+
+//::::::::Function used to make a symbol assignment to a variable::::::::
+function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo) { 
+
+  var type_str = program_info.Checker.typeToString(arg_type);
 
   switch (type_str) {
     case "string" : return createStringSymbAssignment(); 
@@ -215,8 +226,9 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo)
     default:
       if (program_info.hasClass(type_str)) {
         return  createObjectSymbParams(type_str,program_info);
-      } else if(type_str.includes("=>")){
-        return generateMockFunction(params, ret_type, program_info)
+      } else if(isFunctionType(arg_type,program_info)){
+        var ret_func_elements = getFunctionElements(arg_type,program_info);
+        return generateMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
       } else {
         throw new Error ("createSymbAssignment: Unsupported type");
       }
@@ -342,19 +354,35 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
 
+function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.ProgramInfo){
+  var stmts = [];
+
+  var ret_args = createArgSymbols(arg_types,program_info);
+  stmts = stmts.concat(ret_args.stmts);
+  var call = `${fun_name}(${ret_args.vars_str});`
+  stmts.push(str2ast(call));
+  return stmts;
+}
+
 
 //::::::::This function generates a mock function used as other function argument::::::::
 function generateMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:finder.ProgramInfo){
-  var stmts = [];
+  var calls = [];
   
   var ret_val = createSymbAssignment(ret_type,program_info);
   
   var ret_args = createArgSymbols(arg_types,program_info);
-  stmts = stmts.concat(ret_args.stmts);
-  
+  for(var i=0;i<arg_types.length;i++){
+    if(isFunctionType(arg_types[i],program_info)){
+      var function_elements = getFunctionElements(arg_types[i],program_info);
+      calls=calls.concat(createCall(ret_args.vars[i], function_elements.params,program_info));
+    }
+  }
+  calls.push(ret_val.stmts[0]);
+  var block_stmt = generateBlock(calls);
   var fun_name = freshMockFuncVar();
   var fun_str= `function ${fun_name} (${ret_args.vars_str}) {
-  ${ast2str(ret_val.stmts[0])}
+  ${ast2str(block_stmt)}
   return ${ret_val.var};
   }`;
   
