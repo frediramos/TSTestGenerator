@@ -83,15 +83,15 @@ function stringManipulation(test_str:string):string{
 
 //::::::::Checks if the given type is a function type::::::::
 function isFunctionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
+
   var arg_str =program_info.Checker.typeToString(arg_type);
   return arg_str.includes("=>");
 }
 
 
 //::::::::Checks if the given type is an array type::::::::
-function isArrayType(arg_type:ts.Type,program_info:finder.ProgramInfo){
-  var arg_str =program_info.Checker.typeToString(arg_type);
-  return arg_str.includes("[]");
+function isArrayType(arr_type:ts.Type){
+  return arr_type.symbol.name==="Array";
 }
 
 
@@ -205,6 +205,8 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
   }
 }
 
+
+//::::::::This function gets the parameters and return types of a function::::::::
 function getFunctionElements(arg_type:ts.Type,program_info:finder.ProgramInfo){
   var params = [];
 
@@ -235,12 +237,17 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo)
     default:
       if (program_info.hasClass(type_str)) {
         return  createObjectSymbParams(type_str,program_info);
-      } else if(isFunctionType(arg_type,program_info)){
-        var ret_func_elements = getFunctionElements(arg_type,program_info);
-        return generateMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
-      } else if(isArrayType(arg_type,program_info)){
-        return generateArrayOfType(arg_type,program_info);
       } 
+      
+      else if(isFunctionType(arg_type,program_info)){
+        var ret_func_elements = getFunctionElements(arg_type,program_info);
+        return createMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
+      } 
+      
+      else if(isArrayType(arg_type)){
+        return createArrayOfType(arg_type,program_info);
+      } 
+
       else {
         throw new Error ("createSymbAssignment: Unsupported type");
       }
@@ -366,6 +373,8 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
 
+
+//::::::::This function generates the call to a function::::::::
 function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.ProgramInfo){
   var stmts = [];
 
@@ -378,7 +387,7 @@ function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.Pr
 
 
 //::::::::This function generates a mock function used as other function argument::::::::
-function generateMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:finder.ProgramInfo){
+function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:finder.ProgramInfo){
   var calls = [];
   
   var ret_val = createSymbAssignment(ret_type,program_info);
@@ -406,8 +415,8 @@ function generateMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:
 
 
 //::::::::This function generates an array of its type::::::::
-function generateArrayOfType(arg_type:ts.Type,program_info:finder.ProgramInfo){
-
+function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
+  console.log(program_info.Checker.typeToString(arr_type));
 }
 
 
@@ -507,8 +516,6 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var tests = [];
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
-
-  //console.log(generateMockFunction(["string"],"number",program_info));
 
   tests.push(enterFunc); 
 
