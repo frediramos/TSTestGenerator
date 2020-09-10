@@ -80,9 +80,18 @@ function stringManipulation(test_str:string):string{
   return test_str_ret6;
 }
 
+
+//::::::::Checks if the given type is a function type::::::::
 function isFunctionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
   var arg_str =program_info.Checker.typeToString(arg_type);
   return arg_str.includes("=>");
+}
+
+
+//::::::::Checks if the given type is an array type::::::::
+function isArrayType(arg_type:ts.Type,program_info:finder.ProgramInfo){
+  var arg_str =program_info.Checker.typeToString(arg_type);
+  return arg_str.includes("[]");
 }
 
 
@@ -229,7 +238,10 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo)
       } else if(isFunctionType(arg_type,program_info)){
         var ret_func_elements = getFunctionElements(arg_type,program_info);
         return generateMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
-      } else {
+      } else if(isArrayType(arg_type,program_info)){
+        return generateArrayOfType(arg_type,program_info);
+      } 
+      else {
         throw new Error ("createSymbAssignment: Unsupported type");
       }
   }
@@ -390,6 +402,12 @@ function generateMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:
     stmts: [str2ast(fun_str)],
     var: fun_name
   }
+}
+
+
+//::::::::This function generates an array of its type::::::::
+function generateArrayOfType(arg_type:ts.Type,program_info:finder.ProgramInfo){
+
 }
 
 
