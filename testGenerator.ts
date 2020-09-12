@@ -85,7 +85,7 @@ function stringManipulation(test_str:string):string{
 function isFunctionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
 
   var arg_str =program_info.Checker.typeToString(arg_type);
-  return arg_str.includes("=>");
+  return arg_str.includes("=>"); 
 }
 
 
@@ -133,7 +133,7 @@ function makeFreshObject (prefix:string) {
 var freshObjectVar = makeFreshObject("obj");
 
 
-//::::::::Function used to create the name of a object with the respective number::::::::
+//::::::::Function used to create the name of a mock function with the respective number::::::::
 function makeFreshMockFunc (prefix:string) {
   var count=0;
 
@@ -144,6 +144,19 @@ function makeFreshMockFunc (prefix:string) {
 }
 
 var freshMockFuncVar = makeFreshMockFunc("mockFunc");
+
+
+//::::::::Function used to create the name of an array with the respective number::::::::
+function makeFreshArray (prefix:string) {
+  var count=0;
+
+  return function() {
+    count++;
+    return prefix+"_"+count;
+  }
+}
+
+var freshArrayVar = makeFreshArray("arr");
 
 
 //::::::::Function used to assign a string symbol to a variable::::::::
@@ -416,7 +429,34 @@ function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:fi
 
 //::::::::This function generates an array of its type::::::::
 function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
-  console.log(program_info.Checker.typeToString(arr_type));
+  var stmts = [];
+  var symb_vars = [];
+  var arrays = [];
+
+  var arg_type = arr_type.getNumberIndexType();
+  for(var i =0;i<3;i++){
+    var ret = createSymbAssignment(arg_type,program_info);
+    stmts = stmts.concat(ret.stmts); 
+    symb_vars.push(ret.var); 
+
+    var args_str = symb_vars.reduce(function (cur_str, prox) {
+      if (cur_str === "") return prox; 
+      else return cur_str + ", " + prox; 
+    },"");
+  
+    var arr = freshArrayVar();
+    arrays[i] = arr; 
+    var arr_str =`var ${arr} = [${args_str}]`;
+  
+    stmts.push(str2ast(arr_str));
+  }
+
+  
+  return {
+    stmts:stmts,
+    var: arr, 
+    vars: arrays
+  }
 }
 
 
