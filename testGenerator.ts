@@ -97,69 +97,27 @@ function isArrayType(arr_type:ts.Type){
 }
 
 
-//::::::::Function used to create the name of a variable with the respective number::::::::
 function makeFreshVariable (prefix:string) {
-  var count = 0;
+  var count = 0; 
 
   return function () { 
      count++;  
      return prefix + "_" + count;      
   }
 }
-
-var freshXVar = makeFreshVariable("x"); 
 
 //::::::::Function used to create the name of a variable with the respective number::::::::
-function makeFreshAssertVariable (prefix:string) {
-  var count = 0;
-
-  return function () { 
-     count++;  
-     return prefix + "_" + count;      
-  }
-}
-
-var freshAssertVar = makeFreshAssertVariable("a"); 
-
-
+var freshXVar = makeFreshVariable("x"); 
+//::::::::Function used to create the name of a variable with the respective number::::::::
+var freshAssertVar = makeFreshVariable("a"); 
 //::::::::Function used to create the name of a object with the respective number::::::::
-function makeFreshObject (prefix:string) {
-  var count=0;
-
-  return function() {
-    count++;
-    return prefix+"_"+count;
-  }
-}
-
-var freshObjectVar = makeFreshObject("obj");
-
-
+var freshObjectVar = makeFreshVariable("obj");
 //::::::::Function used to create the name of a mock function with the respective number::::::::
-function makeFreshMockFunc (prefix:string) {
-  var count=0;
-
-  return function() {
-    count++;
-    return prefix+"_"+count;
-  }
-}
-
-var freshMockFuncVar = makeFreshMockFunc("mockFunc");
-
-
+var freshMockFuncVar = makeFreshVariable("mockFunc");
 //::::::::Function used to create the name of an array with the respective number::::::::
-function makeFreshArray (prefix:string) {
-  var count=0;
-
-  return function() {
-    count++;
-    return prefix+"_"+count;
-  }
-}
-
-var freshArrayVar = makeFreshArray("arr");
-
+var freshArrayVar = makeFreshVariable("arr");
+//::::::::Function used to create the name of a control variable -> used to select the number of elements of an array ::::::::
+var freshControlVar = makeFreshVariable("control");
 
 //::::::::Function used to assign a string symbol to a variable::::::::
 function createStringSymbAssignment () { 
@@ -429,6 +387,45 @@ function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:fi
 }
 
 
+function makeCaseStmt (i, block) {
+  return {
+    type: "SwitchCase",
+    test: {
+      "type": "Literal",
+      "value": i,
+      "raw": i+""
+    },
+    consequent: [ block ]
+  }
+}
+
+function makeDefaultCaseStmt(block) {
+  return {
+    type: "SwitchCase",
+    test: null,
+    consequent: [ block ]
+  }
+}
+
+function makeSwitchStmt (control_var, blocks) {
+  var cases = [];
+  
+  for (var i=0; i<blocks.length-1; i++) {
+    cases.push(makeCaseStmt(i, blocks[i]));
+  }
+  cases.push(makeDefaultCaseStmt(blocks[blocks.length-1]));
+
+  return {
+    type: "SwitchStatement",
+    discriminant: {
+      type: "Identifier",
+      name: control_var
+    },
+    cases: cases
+  }
+}
+
+
 //::::::::This function generates an array of its type::::::::
 function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
   var stmts = [];
@@ -440,9 +437,13 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
   
   var arg_type = arr_type.getNumberIndexType();
   
+  var arr_str = `var ${arr}`; 
+  stmts.push(str2ast(arr_str));
+
   for(var i =0;i<BRANCHING_LIMIT;i++){
     var ret = createSymbAssignment(arg_type,program_info);
-    
+  
+    stmts = stmts.concat(ret.stmts);
     symb_vars.push(ret.var); 
 
     var args_str = symb_vars.reduce(function (cur_str, prox) {
@@ -450,18 +451,18 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
       else return cur_str + ", " + prox; 
     },"");
   
-    
-    arrays[i] = arr; 
-    var arr_str =`${arr} = [${args_str}]`;
-    ret.stmts.push(str2ast(arr_str));
-    stmts.push(ret.stmts);
+    arr_str =`${arr} = [${args_str}]; break`;
+    arrays.push(str2ast(arr_str));
   }
 
-
+  var control_var = freshControlVar(); 
+  var switch_stmt = makeSwitchStmt(control_var, arrays); 
+  stmts.push(switch_stmt); 
   
   return {
     stmts:stmts,
-    var: arr
+    var: arr, 
+    control: [ control_var ] 
   }
 }
 
