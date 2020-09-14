@@ -3,8 +3,6 @@ var escodegen = require('escodegen');
 var fs = require('fs');
 import finder = require("./finder");
 import ts = require("typescript");
-import { number } from "yargs";
-import { checkServerIdentity } from "tls";
 
 
 //Class used to store the Cosette functions
@@ -123,6 +121,25 @@ var freshArrayVar = makeFreshVariable("arr");
 var freshControlVar = makeFreshVariable("control");
 
 
+
+function createCombinations(args) {
+  var r = [];
+  var max = args.length-1;
+  function helper(arr, i) {
+      for (var j=0, l=args[i].length; j<l; j++) {
+          var a = arr.slice(0); // clone arr
+          a.push(args[i][j]);
+          if (i==max)
+              r.push(a);
+          else
+              helper(a, i+1);
+      }
+  }
+  helper([], 0);
+  return r;
+}
+
+
 //::::::::Function used to assign a string symbol to a variable::::::::
 function createStringSymbAssignment () { 
   var x = freshXVar(); 
@@ -153,53 +170,39 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
   var stmts = []; 
   var objs = [];
 
+  var obj = freshObjectVar();
+
+  var obj_str = `var ${obj}`; 
+  stmts.push(str2ast(obj_str));
+
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
     symb_vars=[];
 
-    for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) {
-      var ret = createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
-      stmts=stmts.concat(ret.stmts); 
-      symb_vars.push(ret.var); 
-    }
+    var ret = createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info);
+    stmts = stmts.concat(ret.stmts);
+    symb_vars = symb_vars.concat(ret.vars);
 
-    var obj = freshObjectVar();
-    objs[i] = obj;
-    var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
-      if (cur_str === "") return prox; 
-      else return cur_str + ", " + prox; 
-    },"");  
-
-    var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
-    var constructor_ret_stmt = str2ast(constructor_ret_str); 
-    stmts.push(constructor_ret_stmt);
-    stmts.push(ENTER_FUNC); 
+    obj_str =`var ${obj} = new ${class_name}(${ret.vars_str})`;
+    objs.push(str2ast(obj_str));
   }
+
+  if(program_info.ConstructorsInfo[class_name].length>1){
+    var control_var = freshControlVar(); 
+    var switch_stmt = createSwitchStmt(control_var, objs);
+    stmts.push(switch_stmt); 
+  }
+  else{
+    stmts.push(str2ast(obj_str));
+  }
+  stmts.push(ENTER_FUNC);
 
   return {
     stmts: stmts,
-    var:objs[0],
-    vars:objs
+    var:obj,
+    control: [ control_var ]
   }
 }
 
-
-//::::::::This function gets the parameters and return types of a function::::::::
-function getFunctionElements(arg_type:ts.Type,program_info:finder.ProgramInfo){
-  var params = [];
-
-  for (const signature of arg_type.getCallSignatures()){
-    for(const parameter of signature.parameters){
-      var parameter_type = program_info.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!);
-      params.push(parameter_type);
-    }
-    var ret_type = signature.getReturnType();
-  }
-
-  return {
-    params:params,
-    ret: ret_type
-  }
-}
 
 //::::::::Function used to make a symbol assignment to a variable::::::::
 function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo) { 
@@ -236,11 +239,14 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo)
 function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo){
   var symb_vars = [];
   var stmts = []; 
+  var control_vars = [];
 
   for (var i=0; i<arg_types.length; i++) {
     var ret = createSymbAssignment(arg_types[i],program_info);
     stmts = stmts.concat(ret.stmts); 
     symb_vars.push(ret.var); 
+    if(ret.control!==undefined)
+      control_vars=control_vars.concat(ret.control);
   }
 
   var args_str = symb_vars.reduce(function (cur_str, prox) {
@@ -252,7 +258,8 @@ function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo){
   return{
     stmts:stmts,
     vars:symb_vars,
-    vars_str:args_str
+    vars_str:args_str,
+    control: control_vars
   }
 }
 
@@ -267,87 +274,24 @@ function createIdentifier(x){
 
 
 //::::::::Function used to create a function declaration::::::::
-function createFunctionDeclaration(method_name,stmts,method_test_number){
+function createFunctionDeclaration(method_name:string,stmts,method_test_number,params_str:string[]){
+  var params = [];
+  for(var i=0;i<params_str.length;i++){
+    params.push({
+      type:"Identifier",
+      name: params_str[i]
+    })
+  }
+
   return{
     type : "FunctionDeclaration",
     id : createIdentifier("test"+method_test_number+"_"+method_name),
-    params : [],
+    params : params,
     body : generateBlock(stmts),
     generator : false,
     expression : false,
     async : false
   }
-}
-
-
-//::::::::This function generates the call of a method::::::::
-function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
-  var symb_vars = [];
-  var stmts = []; 
-  var objs = [];
-
-  stmts.push(ENTER_FUNC);
-  for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
-    symb_vars=[];
-
-    for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
-      var ret = createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
-      stmts=stmts.concat(ret.stmts); 
-      symb_vars.push(ret.var); 
-    }
-
-    var obj = freshObjectVar();
-    objs[i] = obj;
-    var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
-      if (cur_str === "") return prox; 
-      else return cur_str + ", " + prox; 
-    },"");  
-
-    var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
-    var constructor_ret_stmt = str2ast(constructor_ret_str); 
-    stmts.push(constructor_ret_stmt);
-    stmts.push(ENTER_FUNC);
-  }
-
-  return createFunctionDeclaration(class_name+"_constructors",stmts,"");
-}
-
-
-//::::::::This function generates a method test function:::::::
-function generateMethodTest(class_name:string, method_name:string,method_number_test:number,program_info:finder.ProgramInfo){
-  var stmts = [];
-  var method_info = program_info.MethodsInfo[class_name][method_name];
-
-  stmts.push(ENTER_FUNC);
-
-  //Object creation
-  var ret_obj = createObjectSymbParams(class_name,program_info);
-  stmts=stmts.concat(ret_obj.stmts);
-  
-
-  //Args symbols creation
-  var ret_args = createArgSymbols(method_info.arg_types,program_info);
-  stmts=stmts.concat(ret_args.stmts);
-
-  var method_return_str = program_info.Checker.typeToString(method_info.ret_type);
-
-  for(var i = 0;i<ret_obj.vars.length;i++){
-
-    //Method call creation
-    var x = freshXVar();
-    var ret_str = `var ${x} = ${ret_obj.vars[i]}.${method_name}(${ret_args.vars_str})`;
-    var ret_ast = str2ast(ret_str);
-    stmts.push(ret_ast);
-    
-    //Final assert creation
-    var ret_asrt = generateFinalAsrt(method_return_str,x,program_info);
-    stmts.push(ret_asrt.stmt);
-    stmts.push(str2ast(`Assert(${ret_asrt.var})`));
-
-    stmts.push(ENTER_FUNC); 
-  }
-  
-  return createFunctionDeclaration(method_name,stmts,method_number_test);
 }
 
 
@@ -391,8 +335,18 @@ function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:fi
 }
 
 
+//::::::::This function creates the default case of the switch::::::::
+function createDefaultCaseStmt(block) {
+  return {
+    type: "SwitchCase",
+    test: null,
+    consequent: [ block ]
+  }
+}
+
+
 //::::::::This function creates a case of the switch ::::::::
-function makeCaseStmt (i, block) {
+function createCaseStmt (i, block) {
   return {
     type: "SwitchCase",
     test: {
@@ -408,24 +362,16 @@ function makeCaseStmt (i, block) {
 }
 
 
-//::::::::This function creates the default case of the switch::::::::
-function makeDefaultCaseStmt(block) {
-  return {
-    type: "SwitchCase",
-    test: null,
-    consequent: [ block ]
-  }
-}
-
-
 //::::::::This function creates a switch statement::::::::
-function makeSwitchStmt (control_var, blocks) {
+function createSwitchStmt (control_var, blocks) {
   var cases = [];
   
   for (var i=0; i<blocks.length-1; i++) {
-    cases.push(makeCaseStmt(i, blocks[i]));
+    cases.push(createCaseStmt(i, blocks[i]));
+    cases.push(ENTER_FUNC);
   }
-  cases.push(makeDefaultCaseStmt(blocks[blocks.length-1]));
+  cases.push(createDefaultCaseStmt(blocks[blocks.length-1]));
+  cases.push(ENTER_FUNC);
 
   return {
     type: "SwitchStatement",
@@ -467,13 +413,116 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
   }
 
   var control_var = freshControlVar(); 
-  var switch_stmt = makeSwitchStmt(control_var, arrays); 
+  var switch_stmt = createSwitchStmt(control_var, arrays);
   stmts.push(switch_stmt); 
+  stmts.push(ENTER_FUNC);
   
   return {
     stmts:stmts,
     var: arr, 
-    control: [ control_var ] 
+    control: [ control_var ]
+  }
+}
+
+
+//::::::::This function gets the parameters and return types of a function::::::::
+function getFunctionElements(arg_type:ts.Type,program_info:finder.ProgramInfo){
+  var params = [];
+
+  for (const signature of arg_type.getCallSignatures()){
+    for(const parameter of signature.parameters){
+      var parameter_type = program_info.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!);
+      params.push(parameter_type);
+    }
+    var ret_type = signature.getReturnType();
+  }
+
+  return {
+    params:params,
+    ret: ret_type
+  }
+}
+
+
+//::::::::This function generates the call of a method::::::::
+function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
+  var symb_vars = [];
+  var stmts = []; 
+  var objs = [];
+  var control_vars = [];
+
+  stmts.push(ENTER_FUNC);
+  for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    symb_vars=[];
+
+    for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
+      var ret = createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
+      stmts=stmts.concat(ret.stmts); 
+      symb_vars.push(ret.var); 
+      if(ret.control!==undefined)
+        control_vars = control_vars.concat(ret.control);
+    }
+
+    var obj = freshObjectVar();
+    objs[i] = obj;
+    var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
+      if (cur_str === "") return prox; 
+      else return cur_str + ", " + prox; 
+    },"");  
+
+    var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
+    var constructor_ret_stmt = str2ast(constructor_ret_str); 
+    stmts.push(constructor_ret_stmt);
+    stmts.push(ENTER_FUNC);
+  }
+
+  return {
+    stmt:createFunctionDeclaration(class_name+"_constructors",stmts,"",control_vars),
+    control: control_vars
+  }
+}
+
+
+//::::::::This function generates a method test function:::::::
+function generateMethodTest(class_name:string, method_name:string,method_number_test:number,program_info:finder.ProgramInfo){
+  var stmts = [];
+  var control_vars = [];
+  var method_info = program_info.MethodsInfo[class_name][method_name];
+
+  stmts.push(ENTER_FUNC);
+
+  //Object creation
+  var ret_obj = createObjectSymbParams(class_name,program_info);
+  stmts=stmts.concat(ret_obj.stmts);
+  if(ret_obj.control[0]!==undefined)
+    control_vars = control_vars.concat(ret_obj.control);
+  
+
+  //Args symbols creation
+  var ret_args = createArgSymbols(method_info.arg_types,program_info);
+  stmts=stmts.concat(ret_args.stmts);
+  if(ret_args.control[0]!==undefined)
+    control_vars = control_vars.concat(ret_args.control);
+
+
+  var method_return_str = program_info.Checker.typeToString(method_info.ret_type);
+
+  //Method call creation
+  var x = freshXVar();
+  var ret_str = `var ${x} = ${ret_obj.var}.${method_name}(${ret_args.vars_str})`;
+  var ret_ast = str2ast(ret_str);
+  stmts.push(ret_ast);
+  
+  //Final assert creation
+  var ret_asrt = generateFinalAsrt(method_return_str,x,program_info);
+  stmts.push(ret_asrt.stmt);
+  stmts.push(str2ast(`Assert(${ret_asrt.var})`));
+
+  stmts.push(ENTER_FUNC); 
+
+  return {
+    stmt: createFunctionDeclaration(method_name,stmts,method_number_test,control_vars),
+    control: control_vars
   }
 }
 
@@ -481,6 +530,7 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
 //::::::::This function generates a function test function::::::::
 function generateFunctionTest(fun_name:string,fun_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
+  var control_vars = [];
   var function_info=program_info.FunctionsInfo[fun_name];
 
   stmts.push(ENTER_FUNC);
@@ -488,6 +538,9 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   //Args symbols creation
   var ret_args = createArgSymbols(function_info.arg_types,program_info);
   stmts=stmts.concat(ret_args.stmts);
+  if(ret_args.control[0]!==undefined)
+    control_vars = control_vars.concat(ret_args.control);
+  
 
   //Function call creation
   var x =freshXVar();
@@ -503,7 +556,10 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   stmts.push(str2ast(`Assert(${ret_asrt.var})`));
   stmts.push(ENTER_FUNC); 
 
-  return createFunctionDeclaration(fun_name,stmts,fun_number_test);
+  return {
+    stmt: createFunctionDeclaration(fun_name,stmts,fun_number_test,control_vars),
+    control: control_vars
+  }
 }
 
 
@@ -592,17 +648,37 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     curr_test+=comment+"\n";
 
     var ret = generateConstructorTests(class_name,program_info);
-    tests.push(ret);
-    curr_test+=ast2str(ret)+"\n";
+    tests.push(ret.stmt);
+    curr_test+=ast2str(ret.stmt)+"\n";
 
     tests.push(ENTER_FUNC);
 
-    var constructor_call_str ="test_"+class_name+"_constructors()";
-    var constructor_call = str2ast(constructor_call_str);
-    tests.push(constructor_call);
-    curr_test+="\n"+constructor_call_str;
-    
-    tests.push(ENTER_FUNC); 
+    var all_cases = [];
+    var cases = [1,2,3];
+    for(var i = 0; i<ret.control.length; i++)
+      all_cases.push(cases);
+
+    var constructor_call_str;
+    var constructor_call;
+    if(all_cases.length>0){
+      var combinations = createCombinations(all_cases);
+      
+      for(var i = 0;i<combinations.length;i++){
+        constructor_call_str ="test_"+class_name+"_constructors("+combinations[i]+");";
+        constructor_call = str2ast(constructor_call_str);
+        tests.push(constructor_call);
+        curr_test += "\n"+constructor_call_str;
+        tests.push(ENTER_FUNC); 
+      }
+    }
+
+    else{
+      constructor_call_str = "test_"+class_name+"_constructors();";
+      constructor_call = str2ast(constructor_call_str);
+      tests.push(constructor_call);
+      curr_test += "\n"+constructor_call_str;
+      tests.push(ENTER_FUNC); 
+    }
 
     fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+stringManipulation (curr_test));
 
@@ -626,17 +702,37 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       curr_test+=comment+"\n";
 
       var ret = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
-      tests.push(ret);
-      curr_test+=ast2str(ret)+"\n";
+      tests.push(ret.stmt);
+      curr_test+=ast2str(ret.stmt)+"\n";
 
-      tests.push(ENTER_FUNC); 
+      tests.push(ENTER_FUNC);
+
+      var all_cases = [];
+      var cases = [1,2,3];
+      for(var i = 0; i<ret.control.length; i++)
+        all_cases.push(cases);
+  
       
-      var method_call_str ="test"+number_test[method_name]+"_"+method_name+"()";
-      var method_call = str2ast(method_call_str);
-      tests.push(method_call);
-      curr_test+="\n"+method_call_str;
+      var method_call_str;
+      var method_call;
+      if(all_cases.length>0){
+        var combinations = createCombinations(all_cases);
+        for(var i = 0;i<combinations.length;i++){
+          method_call_str ="test"+number_test[method_name]+"_"+method_name+"("+combinations[i]+");";
+          method_call = str2ast(method_call_str);
+          tests.push(method_call);
+          curr_test += "\n"+method_call_str;
+          tests.push(ENTER_FUNC); 
+        }
+      }
       
-      tests.push(ENTER_FUNC); 
+      else{
+        method_call_str = "test"+number_test[method_name]+"_"+method_name+"();"
+        method_call = str2ast(method_call_str);
+        tests.push(method_call);
+        curr_test += "\n"+method_call_str;
+        tests.push(ENTER_FUNC); 
+      }
 
       fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
@@ -661,17 +757,36 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     curr_test += comment+"\n";
 
     var ret = generateFunctionTest(fun_name,number_test[fun_name],program_info);
-    tests.push(ret);
-    curr_test += ast2str(ret)+"\n";
+    tests.push(ret.stmt);
+    curr_test += ast2str(ret.stmt)+"\n";
 
-    tests.push(ENTER_FUNC); 
-    
-    var fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"()";
-    var fun_call = str2ast(fun_call_str);
-    tests.push(fun_call);
-    curr_test += "\n"+fun_call_str;
-    
-    tests.push(ENTER_FUNC); 
+    tests.push(ENTER_FUNC);
+
+    var all_cases = [];
+    var cases = [1,2,3];
+    for(var i = 0; i<ret.control.length; i++)
+      all_cases.push(cases);
+
+    var fun_call_str;
+    var fun_call;
+    if(all_cases.length>0){
+      var combinations = createCombinations(all_cases);
+      for(var i = 0;i<combinations.length;i++){
+        fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"("+combinations[i]+");";
+        fun_call = str2ast(fun_call_str);
+        tests.push(fun_call);
+        curr_test += "\n"+fun_call_str;
+        tests.push(ENTER_FUNC); 
+      }
+    }
+
+    else{
+      fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"();"
+      fun_call = str2ast(fun_call_str);
+      tests.push(fun_call);
+      curr_test += "\n"+fun_call_str;
+      tests.push(ENTER_FUNC); 
+    }
 
     fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 

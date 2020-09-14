@@ -193,11 +193,11 @@ function visitGraph(graph:HashTable<ClassVertex>,curr_path:string[],cycles:strin
 
     for(var i=0;i<vertex.edges.length;i++){
         
-        if(graph[vertex.edges[i]].visited===1){
+        if(graph[vertex.edges[i]]!==undefined && graph[vertex.edges[i]].visited===1){
             cycles.push(curr_path);
         }
 
-        else if(graph[vertex.edges[i]].visited===0){
+        else if(graph[vertex.edges[i]]!==undefined && graph[vertex.edges[i]].visited===0){
             curr_path.push(vertex.edges[i]);
             graph[vertex.edges[i]].visited=1;
             visitGraph(graph,curr_path,cycles)
