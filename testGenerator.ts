@@ -27,6 +27,8 @@ class CosetteFunctions {
 
 var cosFunc = new CosetteFunctions(); 
 
+const BRANCHING_LIMIT = 3;
+
 
 //Constants created for string manipulation later
 const enterFunc = str2ast("$Enter$()");
@@ -433,10 +435,14 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
   var symb_vars = [];
   var arrays = [];
 
+  var arr = freshArrayVar();
+  symb_vars.push(arr);
+  
   var arg_type = arr_type.getNumberIndexType();
-  for(var i =0;i<3;i++){
+  
+  for(var i =0;i<BRANCHING_LIMIT;i++){
     var ret = createSymbAssignment(arg_type,program_info);
-    stmts = stmts.concat(ret.stmts); 
+    
     symb_vars.push(ret.var); 
 
     var args_str = symb_vars.reduce(function (cur_str, prox) {
@@ -444,18 +450,18 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
       else return cur_str + ", " + prox; 
     },"");
   
-    var arr = freshArrayVar();
+    
     arrays[i] = arr; 
-    var arr_str =`var ${arr} = [${args_str}]`;
-  
-    stmts.push(str2ast(arr_str));
+    var arr_str =`${arr} = [${args_str}]`;
+    ret.stmts.push(str2ast(arr_str));
+    stmts.push(ret.stmts);
   }
+
 
   
   return {
     stmts:stmts,
-    var: arr, 
-    vars: arrays
+    var: arr
   }
 }
 
