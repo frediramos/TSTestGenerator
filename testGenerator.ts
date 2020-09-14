@@ -27,14 +27,16 @@ class CosetteFunctions {
 
 var cosFunc = new CosetteFunctions(); 
 
+
+//Limit of the branching
 const BRANCHING_LIMIT = 3;
 
 
 //Constants created for string manipulation later
-const enterFunc = str2ast("$Enter$()");
-const spaceStr = "$Space$";
-const colonsStr = "$Colons$";
-const apostropheStr = "$Apostrophe$";
+const ENTER_FUNC = str2ast("$Enter$()");
+const SPACE_STR = "$Space$";
+const COLONS_STR = "$Colons$";
+const APOSTROPHE_STR = "$Apostrophe$";
 
 
 //::::::::Turns ast into string::::::::
@@ -106,6 +108,7 @@ function makeFreshVariable (prefix:string) {
   }
 }
 
+
 //::::::::Function used to create the name of a variable with the respective number::::::::
 var freshXVar = makeFreshVariable("x"); 
 //::::::::Function used to create the name of a variable with the respective number::::::::
@@ -118,6 +121,7 @@ var freshMockFuncVar = makeFreshVariable("mockFunc");
 var freshArrayVar = makeFreshVariable("arr");
 //::::::::Function used to create the name of a control variable -> used to select the number of elements of an array ::::::::
 var freshControlVar = makeFreshVariable("control");
+
 
 //::::::::Function used to assign a string symbol to a variable::::::::
 function createStringSymbAssignment () { 
@@ -168,7 +172,7 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
     var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
     var constructor_ret_stmt = str2ast(constructor_ret_str); 
     stmts.push(constructor_ret_stmt);
-    stmts.push(enterFunc); 
+    stmts.push(ENTER_FUNC); 
   }
 
   return {
@@ -282,7 +286,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
   var stmts = []; 
   var objs = [];
 
-  stmts.push(enterFunc);
+  stmts.push(ENTER_FUNC);
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
     symb_vars=[];
 
@@ -302,7 +306,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
     var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
     var constructor_ret_stmt = str2ast(constructor_ret_str); 
     stmts.push(constructor_ret_stmt);
-    stmts.push(enterFunc);
+    stmts.push(ENTER_FUNC);
   }
 
   return createFunctionDeclaration(class_name+"_constructors",stmts,"");
@@ -314,7 +318,7 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   var stmts = [];
   var method_info = program_info.MethodsInfo[class_name][method_name];
 
-  stmts.push(enterFunc);
+  stmts.push(ENTER_FUNC);
 
   //Object creation
   var ret_obj = createObjectSymbParams(class_name,program_info);
@@ -340,7 +344,7 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
     stmts.push(ret_asrt.stmt);
     stmts.push(str2ast(`Assert(${ret_asrt.var})`));
 
-    stmts.push(enterFunc); 
+    stmts.push(ENTER_FUNC); 
   }
   
   return createFunctionDeclaration(method_name,stmts,method_number_test);
@@ -387,18 +391,24 @@ function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:fi
 }
 
 
+//::::::::This function creates a case of the switch ::::::::
 function makeCaseStmt (i, block) {
   return {
     type: "SwitchCase",
     test: {
       "type": "Literal",
-      "value": i,
-      "raw": i+""
+      "value": i+1,
+      "raw": (i+1)+""
     },
-    consequent: [ block ]
+    consequent: [ block,{
+      type: "BreakStatement",
+      test: null
+    } ]
   }
 }
 
+
+//::::::::This function creates the default case of the switch::::::::
 function makeDefaultCaseStmt(block) {
   return {
     type: "SwitchCase",
@@ -407,6 +417,8 @@ function makeDefaultCaseStmt(block) {
   }
 }
 
+
+//::::::::This function creates a switch statement::::::::
 function makeSwitchStmt (control_var, blocks) {
   var cases = [];
   
@@ -433,7 +445,6 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
   var arrays = [];
 
   var arr = freshArrayVar();
-  symb_vars.push(arr);
   
   var arg_type = arr_type.getNumberIndexType();
   
@@ -451,7 +462,7 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
       else return cur_str + ", " + prox; 
     },"");
   
-    arr_str =`${arr} = [${args_str}]; break`;
+    arr_str =`${arr} = [${args_str}]`;
     arrays.push(str2ast(arr_str));
   }
 
@@ -472,7 +483,7 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   var stmts = [];
   var function_info=program_info.FunctionsInfo[fun_name];
 
-  stmts.push(enterFunc);
+  stmts.push(ENTER_FUNC);
 
   //Args symbols creation
   var ret_args = createArgSymbols(function_info.arg_types,program_info);
@@ -490,7 +501,7 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   stmts.push(ret_asrt.stmt);
 
   stmts.push(str2ast(`Assert(${ret_asrt.var})`));
-  stmts.push(enterFunc); 
+  stmts.push(ENTER_FUNC); 
 
   return createFunctionDeclaration(fun_name,stmts,fun_number_test);
 }
@@ -564,7 +575,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
 
-  tests.push(enterFunc); 
+  tests.push(ENTER_FUNC); 
 
   //Constructors tests will be created
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
@@ -576,7 +587,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     else
       number_test[class_name]++;
 
-    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"constructors"+"Comment2();";
+    var comment = "Comment1Test"+SPACE_STR+"of"+SPACE_STR+class_name+APOSTROPHE_STR+"s"+SPACE_STR+"constructors"+"Comment2();";
     tests.push(str2ast(comment));
     curr_test+=comment+"\n";
 
@@ -584,14 +595,14 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     tests.push(ret);
     curr_test+=ast2str(ret)+"\n";
 
-    tests.push(enterFunc);
+    tests.push(ENTER_FUNC);
 
     var constructor_call_str ="test_"+class_name+"_constructors()";
     var constructor_call = str2ast(constructor_call_str);
     tests.push(constructor_call);
     curr_test+="\n"+constructor_call_str;
     
-    tests.push(enterFunc); 
+    tests.push(ENTER_FUNC); 
 
     fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+stringManipulation (curr_test));
 
@@ -610,7 +621,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       else
         number_test[method_name]++;
       
-      var comment = "Comment1Test"+spaceStr+"of"+spaceStr+class_name+apostropheStr+"s"+spaceStr+"method"+colonsStr+method_name+"Comment2();";
+      var comment = "Comment1Test"+SPACE_STR+"of"+SPACE_STR+class_name+APOSTROPHE_STR+"s"+SPACE_STR+"method"+COLONS_STR+method_name+"Comment2();";
       tests.push(str2ast(comment));
       curr_test+=comment+"\n";
 
@@ -618,14 +629,14 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       tests.push(ret);
       curr_test+=ast2str(ret)+"\n";
 
-      tests.push(enterFunc); 
+      tests.push(ENTER_FUNC); 
       
       var method_call_str ="test"+number_test[method_name]+"_"+method_name+"()";
       var method_call = str2ast(method_call_str);
       tests.push(method_call);
       curr_test+="\n"+method_call_str;
       
-      tests.push(enterFunc); 
+      tests.push(ENTER_FUNC); 
 
       fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
@@ -645,7 +656,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     else
       number_test[fun_name]++;
 
-    var comment = "Comment1Test"+spaceStr+"of"+spaceStr+"function"+colonsStr+fun_name+"Comment2();";
+    var comment = "Comment1Test"+SPACE_STR+"of"+SPACE_STR+"function"+COLONS_STR+fun_name+"Comment2();";
     tests.push(str2ast(comment));
     curr_test += comment+"\n";
 
@@ -653,14 +664,14 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     tests.push(ret);
     curr_test += ast2str(ret)+"\n";
 
-    tests.push(enterFunc); 
+    tests.push(ENTER_FUNC); 
     
     var fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"()";
     var fun_call = str2ast(fun_call_str);
     tests.push(fun_call);
     curr_test += "\n"+fun_call_str;
     
-    tests.push(enterFunc); 
+    tests.push(ENTER_FUNC); 
 
     fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
