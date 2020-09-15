@@ -98,6 +98,7 @@ function isArrayType(arr_type:ts.Type){
 }
 
 
+//::::::::Function used to create the name of some type of variable with the respective number::::::::
 function makeFreshVariable (prefix:string) {
   var count = 0; 
 
@@ -107,12 +108,11 @@ function makeFreshVariable (prefix:string) {
   }
 }
 
-
 //::::::::Function used to create the name of a variable with the respective number::::::::
 var freshXVar = makeFreshVariable("x"); 
-//::::::::Function used to create the name of a variable with the respective number::::::::
+//::::::::Function used to create the name of an assert variable with the respective number::::::::
 var freshAssertVar = makeFreshVariable("a"); 
-//::::::::Function used to create the name of a object with the respective number::::::::
+//::::::::Function used to create the name of an object with the respective number::::::::
 var freshObjectVar = makeFreshVariable("obj");
 //::::::::Function used to create the name of a mock function with the respective number::::::::
 var freshMockFuncVar = makeFreshVariable("mockFunc");
@@ -122,7 +122,7 @@ var freshArrayVar = makeFreshVariable("arr");
 var freshControlVar = makeFreshVariable("control");
 
 
-
+//::::::::Function used to generate the combinations for the control vars::::::::
 function createCombinations(args) {
   var r = [];
   var max = args.length-1;
