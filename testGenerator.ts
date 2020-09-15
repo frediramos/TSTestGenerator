@@ -28,6 +28,7 @@ var cosFunc = new CosetteFunctions();
 
 //Limit of the branching
 const BRANCHING_LIMIT = 3;
+const FUEL = 3;
 
 
 //Constants created for string manipulation later
@@ -182,7 +183,7 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
     stmts = stmts.concat(ret.stmts);
     symb_vars = symb_vars.concat(ret.vars);
 
-    obj_str =`var ${obj} = new ${class_name}(${ret.vars_str})`;
+    obj_str =`${obj} = new ${class_name}(${ret.vars_str})`;
     objs.push(str2ast(obj_str));
   }
 
