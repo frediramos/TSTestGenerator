@@ -200,7 +200,8 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
   return {
     stmts: stmts,
     var:obj,
-    control: [ control_var ]
+    control: [ control_var ],
+    control_num: [ program_info.ConstructorsInfo[class_name].length ]
   }
 }
 
@@ -241,13 +242,17 @@ function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo){
   var symb_vars = [];
   var stmts = []; 
   var control_vars = [];
+  var control_nums = [];
 
   for (var i=0; i<arg_types.length; i++) {
     var ret = createSymbAssignment(arg_types[i],program_info);
     stmts = stmts.concat(ret.stmts); 
     symb_vars.push(ret.var); 
-    if(ret.control!==undefined)
-      control_vars=control_vars.concat(ret.control);
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+      control_nums = control_nums.concat(ret.control_num);
+    }
+      
   }
 
   var args_str = symb_vars.reduce(function (cur_str, prox) {
@@ -260,7 +265,8 @@ function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo){
     stmts:stmts,
     vars:symb_vars,
     vars_str:args_str,
-    control: control_vars
+    control: control_vars,
+    control_num: control_nums
   }
 }
 
@@ -421,7 +427,8 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
   return {
     stmts:stmts,
     var: arr, 
-    control: [ control_var ]
+    control: [ control_var ],
+    control_num: [ BRANCHING_LIMIT ]
   }
 }
 
@@ -451,6 +458,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
   var stmts = []; 
   var objs = [];
   var control_vars = [];
+  var control_nums = [];
 
   stmts.push(ENTER_FUNC);
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
@@ -460,8 +468,10 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
       var ret = createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
       stmts=stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 
-      if(ret.control!==undefined)
+      if(ret.control!==undefined){
         control_vars = control_vars.concat(ret.control);
+        control_nums = control_nums.concat(ret.control_num);
+      } 
     }
 
     var obj = freshObjectVar();
@@ -479,7 +489,8 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
 
   return {
     stmt:createFunctionDeclaration(class_name+"_constructors",stmts,"",control_vars),
-    control: control_vars
+    control: control_vars,
+    control_num: control_nums
   }
 }
 
@@ -488,6 +499,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
 function generateMethodTest(class_name:string, method_name:string,method_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
   var control_vars = [];
+  var control_nums = [];
   var method_info = program_info.MethodsInfo[class_name][method_name];
 
   stmts.push(ENTER_FUNC);
@@ -495,15 +507,19 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   //Object creation
   var ret_obj = createObjectSymbParams(class_name,program_info);
   stmts=stmts.concat(ret_obj.stmts);
-  if(ret_obj.control[0]!==undefined)
+  if(ret_obj.control[0]!==undefined){
     control_vars = control_vars.concat(ret_obj.control);
+    control_nums = control_nums.concat(ret_obj.control_num);
+  }
+    
   
-
   //Args symbols creation
   var ret_args = createArgSymbols(method_info.arg_types,program_info);
   stmts=stmts.concat(ret_args.stmts);
-  if(ret_args.control[0]!==undefined)
+  if(ret_args.control[0]!==undefined){
     control_vars = control_vars.concat(ret_args.control);
+    control_nums = control_nums.concat(ret_args.control_num);
+  }
 
 
   var method_return_str = program_info.Checker.typeToString(method_info.ret_type);
@@ -523,7 +539,8 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
 
   return {
     stmt: createFunctionDeclaration(method_name,stmts,method_number_test,control_vars),
-    control: control_vars
+    control: control_vars,
+    control_num: control_nums
   }
 }
 
@@ -532,6 +549,7 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
 function generateFunctionTest(fun_name:string,fun_number_test:number,program_info:finder.ProgramInfo){
   var stmts = [];
   var control_vars = [];
+  var control_nums = [];
   var function_info=program_info.FunctionsInfo[fun_name];
 
   stmts.push(ENTER_FUNC);
@@ -539,9 +557,11 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   //Args symbols creation
   var ret_args = createArgSymbols(function_info.arg_types,program_info);
   stmts=stmts.concat(ret_args.stmts);
-  if(ret_args.control[0]!==undefined)
+  if(ret_args.control[0]!==undefined){
     control_vars = control_vars.concat(ret_args.control);
-  
+    control_nums = control_nums.concat(ret_args.control_num);
+  }
+    
 
   //Function call creation
   var x =freshXVar();
@@ -559,7 +579,8 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
 
   return {
     stmt: createFunctionDeclaration(fun_name,stmts,fun_number_test,control_vars),
-    control: control_vars
+    control: control_vars,
+    control_num: control_nums
   }
 }
 
@@ -655,9 +676,14 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     tests.push(ENTER_FUNC);
 
     var all_cases = [];
-    var cases = [1,2,3];
-    for(var i = 0; i<ret.control.length; i++)
+    var cases;
+    for(var i = 0; i<ret.control.length; i++){
+      cases = [];
+      for (var j=0;j<ret.control_num.length;j++){
+        cases.push(j+1);
+      }
       all_cases.push(cases);
+    }
 
     var constructor_call_str;
     var constructor_call;
@@ -709,9 +735,14 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       tests.push(ENTER_FUNC);
 
       var all_cases = [];
-      var cases = [1,2,3];
-      for(var i = 0; i<ret.control.length; i++)
+      var cases;
+      for(var i = 0; i<ret.control.length; i++){
+        cases = [];
+        for (var j=0;j<ret.control_num[i];j++){
+          cases.push(j+1);
+        }
         all_cases.push(cases);
+      }
   
       
       var method_call_str;

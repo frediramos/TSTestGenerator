@@ -31,7 +31,7 @@ var prog_info:finder.ProgramInfo = finder.finder(process.argv.slice(2));
 //Checking for cyclic constructions
 var cycles =finder.findCycles(prog_info);
 
-if(cycles[0]!==undefined){
+if(cycles.all_cycles[0]!==undefined){
     console.log("Error: Cyclic object construction");
 }
 
