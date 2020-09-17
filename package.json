@@ -13,17 +13,20 @@
   "devDependencies": {
     "@types/jasmine": "^2.8.6",
     "@types/lodash": "^4.14.107",
-    "@types/node": "^9.6.6",
+    "@types/node": "^9.6.58",
     "@types/uuid": "^3.4.3",
     "@types/yargs": "^11.0.0",
     "jasmine": "^3.1.0",
-    "npm": "^6.0.0"
+    "npm": "^6.14.8"
   },
   "dependencies": {
+    "escodegen": "^2.0.0",
+    "esprima": "^4.0.1",
+    "fs": "0.0.1-security",
     "lodash": "^4.17.5",
     "node": "^9.11.0",
+    "typescript": "^2.8.3",
     "uuid": "^3.2.1",
-    "yargs": "^11.1.0",
-    "typescript": "2.8.3"
+    "yargs": "^11.1.0"
   }
 }

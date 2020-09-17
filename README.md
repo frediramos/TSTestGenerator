@@ -1,4 +1,4 @@
-# TS2JaVerT
+# TSTestGenerator
 
 Compiler that processes TypeScript file and emits JavaScript code annotated with [JaVerT](https://link.springer.com/chapter/10.1007/978-3-319-63046-5_2) assertions.
 

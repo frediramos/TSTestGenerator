@@ -763,6 +763,39 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
     tests.push(ENTER_FUNC);
 
+    var fun_call_str;
+    var fun_call;
+    var symbolic_cases_vars = [];
+
+    for(var i = 0; i<ret.control.length; i++){
+      var symbolic_case = createNumberSymbAssignment();
+      curr_test += "\n"+ast2str(symbolic_case.stmts[0]);
+      tests=tests.concat(symbolic_case.stmts);
+      symbolic_cases_vars.push(symbolic_case.var);
+    }
+
+    if(symbolic_cases_vars.length>0){
+      var arg_str = symbolic_cases_vars[0];
+      
+      for(var i = 1;i<symbolic_cases_vars.length;i++)
+        arg_str += ", "+symbolic_cases_vars[i];
+
+      fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"("+arg_str+");";
+      fun_call = str2ast(fun_call_str);
+      tests.push(fun_call);
+      curr_test += "\n"+fun_call_str;
+      tests.push(ENTER_FUNC); 
+    }
+
+    else{
+      fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"();"
+      fun_call = str2ast(fun_call_str);
+      tests.push(fun_call);
+      curr_test += "\n"+fun_call_str;
+      tests.push(ENTER_FUNC); 
+    } 
+      
+    /*
     var all_cases = [];
     var cases = [1,2,3];
     for(var i = 0; i<ret.control.length; i++)
@@ -788,7 +821,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       curr_test += "\n"+fun_call_str;
       tests.push(ENTER_FUNC); 
     }
-
+    */
     fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
     fun_names[num_fun]=fun_call_str;
