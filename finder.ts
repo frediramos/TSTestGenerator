@@ -28,6 +28,8 @@ export class ProgramInfo{
     ConstructorsInfo: HashTable<ComposedInfo []> = {};
     PropertiesInfo: HashTable<HashTable<ts.Type>> = {};
     FunctionsInfo: HashTable<ComposedInfo> = {};
+    cycles_hash:HashTable<string[][]> = {};
+
 
     hasClass(class_name:string):boolean{
         if(this.ClassesInfo[class_name]===undefined)
@@ -218,7 +220,6 @@ function visitGraph(graph:HashTable<ClassVertex>,curr_path:string[],cycles:strin
 export function findCycles(program_info:ProgramInfo){
     var classes_graph:HashTable<ClassVertex> = {};
     var cycles:string[][]=[];
-    var cycles_hash:HashTable<string[][]> = {};
 
     initializeClassesGraph(classes_graph,program_info);
 
@@ -229,13 +230,10 @@ export function findCycles(program_info:ProgramInfo){
             var curr_path =[];
             curr_path.push(class_name);
             classes_graph[class_name].visited=1;
-            visitGraph(classes_graph,curr_path,cycles,cycles_hash);
+            visitGraph(classes_graph,curr_path,cycles,program_info.cycles_hash);
             classes_graph[class_name].visited=2;
         }
     });
 
-    return {
-        all_cycles:cycles,
-        hash_cycles:cycles_hash
-    }
+    return cycles;
 }

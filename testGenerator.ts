@@ -122,6 +122,8 @@ var freshArrayVar = makeFreshVariable("arr");
 var freshControlArrVar = makeFreshVariable("control_arr");
 //::::::::Function used to create the name of a control variable -> used to select which object constructor will be used ::::::::
 var freshControlObjVar = makeFreshVariable("control_obj");
+//::::::::Function used to create the name of a fuel variable with the respective number ::::::::
+var freshFuelVar = makeFreshVariable("fuel");
 
 
 //::::::::Function used to generate the combinations for the control vars::::::::
@@ -167,6 +169,132 @@ function createNumberSymbAssignment () {
 }
 
 
+//::::::::This function creates the name for the create object function::::::::
+function getCreateMethodName(class_name:string):string{
+  return "create"+class_name;
+}
+
+
+//::::::::This function generates the call of a constructor recursively with symbolic parameters::::::::
+function createObjectRecursiveCall(class_name:string,fuel_var:string){
+  var recurs_obj_var = freshObjectVar()
+  var call = `var ${recurs_obj_var} = ${getCreateMethodName(class_name)}(${fuel_var});`;
+  return {
+    stmts: [ str2ast(call) ],
+    var: recurs_obj_var
+  }
+}
+
+
+//::::::::This function generates the call of a constructor that needs recursive behaviour with symbolic parameters::::::::
+function createObjectRecursiveSymbParams(class_name:string, program_info:finder.ProgramInfo){
+  /*
+  var symb_vars = [];
+  var stmts = []; 
+  var objs = [];
+  var control_vars = [];
+  var control_nums = [];
+
+  var fuel_var = freshFuelVar();
+  var control_obj_var = freshControlObjVar();
+  var if_has_fuel_str = `if(${fuel_var}.length === 0){
+    return null;
+  }
+  var ${control_obj_var} = ${fuel_var}.pop();`
+
+  stmts.push(str2ast(if_has_fuel_str));
+
+  var obj_str;
+
+  for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    symb_vars=[];
+
+    var ret = createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info,fuel_var);
+    symb_vars = symb_vars.concat(ret.vars);
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+      control_nums = control_nums.concat(ret.control_num);
+    }
+
+    obj_str = `return new ${class_name}(${ret.vars_str})`
+    objs.push(generateBlock(ret.stmts.concat(str2ast(obj_str))));
+    
+  }
+
+  if(program_info.ConstructorsInfo[class_name].length>1) {
+    var switch_stmt = createSwitchStmt(control_obj_var, objs);
+    stmts.push(switch_stmt); 
+  }
+  else {
+    stmts.push(objs[0]);
+  }
+
+  stmts.push(ENTER_FUNC);
+
+  control_nums.push(program_info.ConstructorsInfo[class_name].length);
+
+  control_vars.unshift(fuel_var);
+
+  return createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars);
+  */
+  var symb_vars = [];
+  var control_vars = [];
+
+  var fuel_var = freshFuelVar();
+  var control_obj_var = freshControlObjVar();
+  var function_str = `if(${fuel_var}.length === 0){
+    return null;
+  }
+  var ${control_obj_var} = ${fuel_var}.pop();
+  switch(${control_obj_var}) {
+    `
+
+  var obj_str;
+
+  for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    symb_vars=[];
+
+    if((program_info.ConstructorsInfo[class_name].length-i) === 1){
+      function_str += `  default:
+        `;
+    }
+    else{
+      function_str += `  case ${i+1}:
+      `;
+    }
+
+    var ret = createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info,fuel_var);
+    symb_vars = symb_vars.concat(ret.vars);
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+    }
+    
+    for(var j=0;j<ret.stmts.length;j++)
+      function_str += ast2str(ret.stmts[j]);
+    
+    obj_str = `return new ${class_name}(${ret.vars_str})
+    `;
+    function_str += obj_str;
+    
+    if((program_info.ConstructorsInfo[class_name].length-i) !== 1)
+      function_str += `break;
+      `;
+  }
+  function_str += `}`;
+  
+  control_vars.unshift(fuel_var);
+
+  var control_vars_str = control_vars.reduce(function (cur_str, prox) {
+    if (cur_str === "") return prox; 
+    else return cur_str + ", " + prox; 
+  },"");
+
+  return str2ast(`function ${getCreateMethodName(class_name)}(${control_vars_str}) {
+    ${function_str}
+  }`);
+}
+
+
 //::::::::This function generates the call of a constructor with symbolic parameters::::::::
 function createObjectSymbParams(class_name:string, program_info:finder.ProgramInfo){
   var symb_vars = [];
@@ -184,7 +312,6 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
     symb_vars=[];
 
     var ret = createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info);
-    stmts = stmts.concat(ret.stmts);
     symb_vars = symb_vars.concat(ret.vars);
     if(ret.control!==undefined){
       control_vars = control_vars.concat(ret.control);
@@ -192,7 +319,7 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
     }
 
     obj_str =`${obj} = new ${class_name}(${ret.vars_str})`;
-    objs.push(str2ast(obj_str));
+    objs.push(generateBlock(ret.stmts.concat(str2ast(obj_str))));
   }
 
   if(program_info.ConstructorsInfo[class_name].length>1){
@@ -201,7 +328,7 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
     stmts.push(switch_stmt); 
   }
   else{
-    stmts.push(str2ast(obj_str));
+    stmts.push(objs[0]);
   }
   stmts.push(ENTER_FUNC);
 
@@ -218,7 +345,7 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
 
 
 //::::::::Function used to make a symbol assignment to a variable::::::::
-function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo) { 
+function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,fuel_var?:string) { 
 
   var type_str = program_info.Checker.typeToString(arg_type);
 
@@ -229,7 +356,12 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo)
 
     default:
       if (program_info.hasClass(type_str)) {
-        return  createObjectSymbParams(type_str,program_info);
+
+        if(program_info.cycles_hash[type_str]){
+          return createObjectRecursiveCall(type_str,fuel_var);
+        } else {
+          return createObjectSymbParams(type_str,program_info);
+        }
       } 
       
       else if(isFunctionType(arg_type,program_info)){
@@ -249,14 +381,14 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo)
 
 
 //::::::::Function used to create the symbol of the arguments::::::::
-function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo){
+function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo,fuel_var?:string){
   var symb_vars = [];
   var stmts = []; 
   var control_vars = [];
   var control_nums = [];
 
   for (var i=0; i<arg_types.length; i++) {
-    var ret = createSymbAssignment(arg_types[i],program_info);
+    var ret = createSymbAssignment(arg_types[i],program_info,fuel_var);
     stmts = stmts.concat(ret.stmts); 
     symb_vars.push(ret.var); 
     if(ret.control!==undefined){
@@ -292,7 +424,7 @@ function createIdentifier(x){
 
 
 //::::::::Function used to create a function declaration::::::::
-function createFunctionDeclaration(method_name:string,stmts,method_test_number,params_str:string[]){
+function createFunctionDeclaration(method_name:string,stmts,params_str:string[]){
   var params = [];
   for(var i=0;i<params_str.length;i++){
     params.push({
@@ -303,7 +435,7 @@ function createFunctionDeclaration(method_name:string,stmts,method_test_number,p
 
   return{
     type : "FunctionDeclaration",
-    id : createIdentifier("test"+method_test_number+"_"+method_name),
+    id : createIdentifier(method_name),
     params : params,
     body : generateBlock(stmts),
     generator : false,
@@ -510,7 +642,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
   }
 
   return {
-    stmt:createFunctionDeclaration(class_name+"_constructors",stmts,"",control_vars),
+    stmt:createFunctionDeclaration("test"+class_name+"_constructors",stmts,control_vars),
     control: control_vars,
     control_num: control_nums
   }
@@ -560,7 +692,7 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   stmts.push(ENTER_FUNC); 
 
   return {
-    stmt: createFunctionDeclaration(method_name,stmts,method_number_test,control_vars),
+    stmt: createFunctionDeclaration("test"+method_number_test+"_"+method_name,stmts,control_vars),
     control: control_vars,
     control_num: control_nums
   }
@@ -600,7 +732,7 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   stmts.push(ENTER_FUNC); 
 
   return {
-    stmt: createFunctionDeclaration(fun_name,stmts,fun_number_test,control_vars),
+    stmt: createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,control_vars),
     control: control_vars,
     control_num: control_nums
   }
@@ -674,8 +806,14 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var tests = [];
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
+  var recursive_create_functions:finder.HashTable<string> = {};
 
-  tests.push(ENTER_FUNC); 
+  Object.keys(program_info.cycles_hash).forEach(function (class_name) {
+    var recursive_create_function = createObjectRecursiveSymbParams(class_name,program_info);
+    console.log(ast2str(recursive_create_function));
+  });
+
+  tests.push(ENTER_FUNC);
 
   //Constructors tests will be created
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
