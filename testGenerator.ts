@@ -119,7 +119,9 @@ var freshMockFuncVar = makeFreshVariable("mockFunc");
 //::::::::Function used to create the name of an array with the respective number::::::::
 var freshArrayVar = makeFreshVariable("arr");
 //::::::::Function used to create the name of a control variable -> used to select the number of elements of an array ::::::::
-var freshControlVar = makeFreshVariable("control");
+var freshControlArrVar = makeFreshVariable("control_arr");
+//::::::::Function used to create the name of a control variable -> used to select which object constructor will be used ::::::::
+var freshControlObjVar = makeFreshVariable("control_obj");
 
 
 //::::::::Function used to generate the combinations for the control vars::::::::
@@ -170,6 +172,8 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
   var symb_vars = [];
   var stmts = []; 
   var objs = [];
+  var control_vars = [];
+  var control_nums = [];
 
   var obj = freshObjectVar();
 
@@ -182,13 +186,17 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
     var ret = createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info);
     stmts = stmts.concat(ret.stmts);
     symb_vars = symb_vars.concat(ret.vars);
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+      control_nums = control_nums.concat(ret.control_num);
+    }
 
     obj_str =`${obj} = new ${class_name}(${ret.vars_str})`;
     objs.push(str2ast(obj_str));
   }
 
   if(program_info.ConstructorsInfo[class_name].length>1){
-    var control_var = freshControlVar(); 
+    var control_var = freshControlObjVar(); 
     var switch_stmt = createSwitchStmt(control_var, objs);
     stmts.push(switch_stmt); 
   }
@@ -197,11 +205,14 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
   }
   stmts.push(ENTER_FUNC);
 
+  control_vars.push(control_var);
+  control_nums.push(program_info.ConstructorsInfo[class_name].length);
+
   return {
     stmts: stmts,
     var:obj,
-    control: [ control_var ],
-    control_num: [ program_info.ConstructorsInfo[class_name].length ]
+    control: control_vars,
+    control_num: control_nums
   }
 }
 
@@ -321,6 +332,7 @@ function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:fi
   var ret_val = createSymbAssignment(ret_type,program_info);
   
   var ret_args = createArgSymbols(arg_types,program_info);
+
   for(var i=0;i<arg_types.length;i++){
     if(isFunctionType(arg_types[i],program_info)){
       var function_elements = getFunctionElements(arg_types[i],program_info);
@@ -396,6 +408,8 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
   var stmts = [];
   var symb_vars = [];
   var arrays = [];
+  var control_vars = [];
+  var control_nums = [];
 
   var arr = freshArrayVar();
   
@@ -406,6 +420,11 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
 
   for(var i =0;i<BRANCHING_LIMIT;i++){
     var ret = createSymbAssignment(arg_type,program_info);
+
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+      control_nums = control_nums.concat(ret.control_num);
+    }    
   
     stmts = stmts.concat(ret.stmts);
     symb_vars.push(ret.var); 
@@ -419,16 +438,19 @@ function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
     arrays.push(str2ast(arr_str));
   }
 
-  var control_var = freshControlVar(); 
+  var control_var = freshControlArrVar(); 
   var switch_stmt = createSwitchStmt(control_var, arrays);
   stmts.push(switch_stmt); 
   stmts.push(ENTER_FUNC);
+
+  control_vars.push(control_var);
+  control_nums.push(BRANCHING_LIMIT);
   
   return {
     stmts:stmts,
     var: arr, 
-    control: [ control_var ],
-    control_num: [ BRANCHING_LIMIT ]
+    control: control_vars,
+    control_num: control_nums
   }
 }
 
@@ -794,6 +816,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
     tests.push(ENTER_FUNC);
 
+    /*
     var fun_call_str;
     var fun_call;
     var symbolic_cases_vars = [];
@@ -826,11 +849,22 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       tests.push(ENTER_FUNC); 
     } 
       
-    /*
+    
     var all_cases = [];
     var cases = [1,2,3];
     for(var i = 0; i<ret.control.length; i++)
       all_cases.push(cases);
+    */
+
+   var all_cases = [];
+   var cases;
+   for(var i = 0; i<ret.control.length; i++){
+     cases = [];
+     for (var j=0;j<ret.control_num[i];j++){
+       cases.push(j+1);
+     }
+     all_cases.push(cases);
+   }
 
     var fun_call_str;
     var fun_call;
@@ -852,7 +886,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       curr_test += "\n"+fun_call_str;
       tests.push(ENTER_FUNC); 
     }
-    */
+    
     fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
     fun_names[num_fun]=fun_call_str;
