@@ -141,8 +141,9 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
         for(const signature of functionType.getCallSignatures()){
 
             //Store the types of the parameters in arg_types in the position "<FunctionName>" of FunctionsInfo 
-            for(const parameter of signature.parameters)
-            prog_info.FunctionsInfo[symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!));
+            for(const parameter of signature.parameters){
+                prog_info.FunctionsInfo[symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!));
+            }
             
             //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
             prog_info.FunctionsInfo[symbol.getName()].ret_type=signature.getReturnType();

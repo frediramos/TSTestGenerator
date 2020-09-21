@@ -94,7 +94,13 @@ function isFunctionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
 
 //::::::::Checks if the given type is an array type::::::::
 function isArrayType(arr_type:ts.Type){
-  return arr_type.symbol.name==="Array";
+  return arr_type.symbol && arr_type.symbol.name==="Array";
+}
+
+
+//::::::::Checks if the given type is an union type::::::::
+function isUnionType(union_type:ts.Type){
+  return union_type.hasOwnProperty("types");
 }
 
 
@@ -185,10 +191,67 @@ function createObjectRecursiveCall(class_name:string,fuel_var:string){
   }
 }
 
+function generateIfFuelStatement(fuel_var:string){
+  return {
+    type: "IfStatement",
+    test: {
+      type: "BinaryExpression",
+      operator: "===",
+      left: {
+        type: "MemberExpression",
+        computed: false,
+        object: {
+          type: "Identifier",
+          name: fuel_var
+        },
+        property: {
+          type: "Identifier",
+          name: "length"
+        }
+      },
+      right: {
+        type: "Literal",
+        value: 0,
+        raw: "0"
+      }
+    },
+    consequent: {
+      type: "ReturnStatement",
+      argument: {
+        type: "Literal",
+        value: null,
+        raw: "null"
+      }
+    },
+    alternate: null
+  }
+}
+
+
+//::::::::This function generates the call of a return statement given a class and its arguments::::::::
+function generateReturnCall(class_name:string,args:string[]){
+  var args_ast = args.map(x=>{return{
+          type: "Identifier",
+          name: x
+        }});
+    
+  return {
+    type: "ReturnStatement",
+    argument: {
+      type: "NewExpression",
+      callee: {
+        type: "Identifier",
+        name: class_name
+      },
+      arguments: args_ast
+    }
+  }
+}
+
 
 //::::::::This function generates the call of a constructor that needs recursive behaviour with symbolic parameters::::::::
 function createObjectRecursiveSymbParams(class_name:string, program_info:finder.ProgramInfo){
-  /*
+  
   var symb_vars = [];
   var stmts = []; 
   var objs = [];
@@ -197,14 +260,11 @@ function createObjectRecursiveSymbParams(class_name:string, program_info:finder.
 
   var fuel_var = freshFuelVar();
   var control_obj_var = freshControlObjVar();
-  var if_has_fuel_str = `if(${fuel_var}.length === 0){
-    return null;
-  }
-  var ${control_obj_var} = ${fuel_var}.pop();`
+  var if_has_fuel_ast = generateIfFuelStatement(fuel_var);
+  stmts.push(if_has_fuel_ast);
 
-  stmts.push(str2ast(if_has_fuel_str));
-
-  var obj_str;
+  var fuel_pop_str = `var ${control_obj_var} = ${fuel_var}.pop();`
+  stmts.push(str2ast(fuel_pop_str));
 
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
     symb_vars=[];
@@ -216,8 +276,8 @@ function createObjectRecursiveSymbParams(class_name:string, program_info:finder.
       control_nums = control_nums.concat(ret.control_num);
     }
 
-    obj_str = `return new ${class_name}(${ret.vars_str})`
-    objs.push(generateBlock(ret.stmts.concat(str2ast(obj_str))));
+    var obj_ret = generateReturnCall(class_name,ret.vars);
+    objs.push(generateBlock(ret.stmts.concat(obj_ret)));
     
   }
 
@@ -236,7 +296,8 @@ function createObjectRecursiveSymbParams(class_name:string, program_info:finder.
   control_vars.unshift(fuel_var);
 
   return createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars);
-  */
+
+  /*
   var symb_vars = [];
   var control_vars = [];
 
@@ -292,6 +353,7 @@ function createObjectRecursiveSymbParams(class_name:string, program_info:finder.
   return str2ast(`function ${getCreateMethodName(class_name)}(${control_vars_str}) {
     ${function_str}
   }`);
+  */
 }
 
 
@@ -371,6 +433,12 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
       
       else if(isArrayType(arg_type)){
         return createArrayOfType(arg_type,program_info);
+      } 
+
+      else if(isUnionType(arg_type)){
+        console.log(arg_type["types"]);
+        throw new Error ("createSymbAssignment: Union type");
+        return createUnionType(arg_type,program_info);
       } 
 
       else {
@@ -606,6 +674,12 @@ function getFunctionElements(arg_type:ts.Type,program_info:finder.ProgramInfo){
 }
 
 
+//::::::::This function generates a symbolic assignment for each type in the union::::::::
+function createUnionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
+  
+}
+
+
 //::::::::This function generates the call of a method::::::::
 function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
   var symb_vars = [];
@@ -810,7 +884,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
   Object.keys(program_info.cycles_hash).forEach(function (class_name) {
     var recursive_create_function = createObjectRecursiveSymbParams(class_name,program_info);
-    console.log(ast2str(recursive_create_function));
+    recursive_create_functions[class_name]=ast2str(recursive_create_function);
   });
 
   tests.push(ENTER_FUNC);
