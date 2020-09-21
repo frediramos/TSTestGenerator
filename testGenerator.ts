@@ -130,6 +130,10 @@ var freshControlArrVar = makeFreshVariable("control_arr");
 var freshControlObjVar = makeFreshVariable("control_obj");
 //::::::::Function used to create the name of a fuel variable with the respective number ::::::::
 var freshFuelVar = makeFreshVariable("fuel");
+//::::::::Function used to create the name of an union variable with the respective number ::::::::
+var freshUnionVar = makeFreshVariable("union");
+//::::::::Function used to create the name of a control variable -> used to select which assigment will be made to the union::::::::
+var freshControlUnionVar = makeFreshVariable("control_union");
 
 
 //::::::::Function used to generate the combinations for the control vars::::::::
@@ -296,64 +300,6 @@ function createObjectRecursiveSymbParams(class_name:string, program_info:finder.
   control_vars.unshift(fuel_var);
 
   return createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars);
-
-  /*
-  var symb_vars = [];
-  var control_vars = [];
-
-  var fuel_var = freshFuelVar();
-  var control_obj_var = freshControlObjVar();
-  var function_str = `if(${fuel_var}.length === 0){
-    return null;
-  }
-  var ${control_obj_var} = ${fuel_var}.pop();
-  switch(${control_obj_var}) {
-    `
-
-  var obj_str;
-
-  for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
-    symb_vars=[];
-
-    if((program_info.ConstructorsInfo[class_name].length-i) === 1){
-      function_str += `  default:
-        `;
-    }
-    else{
-      function_str += `  case ${i+1}:
-      `;
-    }
-
-    var ret = createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info,fuel_var);
-    symb_vars = symb_vars.concat(ret.vars);
-    if(ret.control!==undefined){
-      control_vars = control_vars.concat(ret.control);
-    }
-    
-    for(var j=0;j<ret.stmts.length;j++)
-      function_str += ast2str(ret.stmts[j]);
-    
-    obj_str = `return new ${class_name}(${ret.vars_str})
-    `;
-    function_str += obj_str;
-    
-    if((program_info.ConstructorsInfo[class_name].length-i) !== 1)
-      function_str += `break;
-      `;
-  }
-  function_str += `}`;
-  
-  control_vars.unshift(fuel_var);
-
-  var control_vars_str = control_vars.reduce(function (cur_str, prox) {
-    if (cur_str === "") return prox; 
-    else return cur_str + ", " + prox; 
-  },"");
-
-  return str2ast(`function ${getCreateMethodName(class_name)}(${control_vars_str}) {
-    ${function_str}
-  }`);
-  */
 }
 
 
@@ -436,8 +382,6 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
       } 
 
       else if(isUnionType(arg_type)){
-        console.log(arg_type["types"]);
-        throw new Error ("createSymbAssignment: Union type");
         return createUnionType(arg_type,program_info);
       } 
 
@@ -676,7 +620,44 @@ function getFunctionElements(arg_type:ts.Type,program_info:finder.ProgramInfo){
 
 //::::::::This function generates a symbolic assignment for each type in the union::::::::
 function createUnionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
+  var stmts = [];
+  var symb_vars = [];
+  var unions = [];
+  var control_vars = [];
+  var control_nums = [];
+
+  var union = freshUnionVar();
   
+  var union_str = `var ${union}`; 
+  stmts.push(str2ast(union_str));
+
+  for(var i =0;i<arg_type["types"].length;i++){
+    var ret = createSymbAssignment(arg_type["types"][i],program_info);
+
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+      control_nums = control_nums.concat(ret.control_num);
+    }    
+    symb_vars.push(ret.var);
+  
+    union_str =`${union} = ${ret.var}`;
+    unions.push(generateBlock(ret.stmts.concat(str2ast(union_str))));
+  }
+
+  var control_var = freshControlUnionVar(); 
+  var switch_stmt = createSwitchStmt(control_var, unions);
+  stmts.push(switch_stmt); 
+  stmts.push(ENTER_FUNC);
+
+  control_vars.push(control_var);
+  control_nums.push(arg_type["types"].length);
+  
+  return {
+    stmts:stmts,
+    var: union, 
+    control: control_vars,
+    control_num: control_nums
+  }
 }
 
 
@@ -716,7 +697,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
   }
 
   return {
-    stmt:createFunctionDeclaration("test"+class_name+"_constructors",stmts,control_vars),
+    stmt:createFunctionDeclaration("test_"+class_name+"_constructors",stmts,control_vars),
     control: control_vars,
     control_num: control_nums
   }
@@ -759,7 +740,7 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   stmts.push(ret_ast);
   
   //Final assert creation
-  var ret_asrt = generateFinalAsrt(method_return_str,x,program_info);
+  var ret_asrt = generateFinalAsrt(method_info.ret_type,x,program_info);
   stmts.push(ret_asrt.stmt);
   stmts.push(str2ast(`Assert(${ret_asrt.var})`));
 
@@ -798,8 +779,7 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   stmts.push(ret_ast);  
   
   //Final assert creation
-  var function_return_str=program_info.Checker.typeToString(function_info.ret_type)
-  var ret_asrt=generateFinalAsrt(function_return_str,x,program_info);
+  var ret_asrt=generateFinalAsrt(function_info.ret_type,x,program_info);
   stmts.push(ret_asrt.stmt);
 
   stmts.push(str2ast(`Assert(${ret_asrt.var})`));
@@ -846,18 +826,44 @@ function generateFinalObjectAsrt(ret_var:string,ret_type: string) {
   }
 }
 
+//::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
+function generateFinalUnionAsrt(ret_var:string,ret_types: string[]) { 
+  var x = freshAssertVar();
+
+  var ret_str = `var ${x} = (${ret_var} typeof ${ret_types[0]}`; 
+  for(var i = 1;i<ret_types.length;i++)
+    ret_str += ` || ${ret_var} typeof ${ret_types[i]}`
+  ret_str += `);`
+  console.log(ret_str);
+  return {
+    stmt:str2ast(ret_str),
+    var:x
+  }
+}
+
 //::::::::This function generates an assertion to check the return type ::::::::
-function generateFinalAsrt (ret_type:string, ret_var:string, program_info : finder.ProgramInfo) {
+function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_info : finder.ProgramInfo) {
+
+  var ret_type_str=program_info.Checker.typeToString(ret_type);
   
-   switch(ret_type) {
+   switch(ret_type_str) {
       case "string" : return generateFinalStringAsrt(ret_var); 
 
       case "number" : return generateFinalNumberAsrt(ret_var); 
       
       default: 
-        if (program_info.hasClass(ret_type)) {
-          return  generateFinalObjectAsrt(ret_var, ret_type)
-        } else {
+        if (program_info.hasClass(ret_type_str)) {
+          return  generateFinalObjectAsrt(ret_var, ret_type_str);
+        } 
+  
+        else if(isUnionType(ret_type)){
+          var ret_types:string[] = []
+          for(var i = 0;i<ret_type["types"].length;i++)
+            ret_types.push(program_info.Checker.typeToString(ret_type["types"][i]));
+          return generateFinalUnionAsrt(ret_var,ret_types);
+        } 
+        
+        else {
           throw new Error ("generateFinalAsrt: Unsupported type")
         }
    }
@@ -872,6 +878,7 @@ function generateBlock(stmts) {
     }
 }
 
+
 //::::::::This fucntion is responsible for genarating the program tests::::::::
 export function generateTests(program_info : finder.ProgramInfo,output_dir:string, js_file:string):string{
 
@@ -881,10 +888,13 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
   var recursive_create_functions:finder.HashTable<string> = {};
+  var all_recursive_create_functions_str:string = "";
 
   Object.keys(program_info.cycles_hash).forEach(function (class_name) {
     var recursive_create_function = createObjectRecursiveSymbParams(class_name,program_info);
-    recursive_create_functions[class_name]=ast2str(recursive_create_function);
+    tests.push(recursive_create_function);
+    recursive_create_functions[class_name] = ast2str(recursive_create_function);
+    all_recursive_create_functions_str += ast2str(recursive_create_function)+"\n"; 
   });
 
   tests.push(ENTER_FUNC);
@@ -892,16 +902,16 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   //Constructors tests will be created
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
 
-    curr_test = "";
+    curr_test = all_recursive_create_functions_str;
 
-    if(number_test[class_name]===undefined)
-      number_test[class_name]=1;
+    if(number_test[class_name] === undefined)
+      number_test[class_name] = 1;
     else
       number_test[class_name]++;
 
     var comment = "Comment1Test"+SPACE_STR+"of"+SPACE_STR+class_name+APOSTROPHE_STR+"s"+SPACE_STR+"constructors"+"Comment2();";
     tests.push(str2ast(comment));
-    curr_test+=comment+"\n";
+    curr_test += comment+"\n";
 
     var ret = generateConstructorTests(class_name,program_info);
     tests.push(ret.stmt);
@@ -925,7 +935,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       var combinations = createCombinations(all_cases);
       
       for(var i = 0;i<combinations.length;i++){
-        constructor_call_str ="test_"+class_name+"_constructors("+combinations[i]+");";
+        constructor_call_str = "test_"+class_name+"_constructors("+combinations[i]+");";
         constructor_call = str2ast(constructor_call_str);
         tests.push(constructor_call);
         curr_test += "\n"+constructor_call_str;
@@ -943,7 +953,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
     fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+stringManipulation (curr_test));
 
-    fun_names[num_fun]=constructor_call_str;
+    fun_names[num_fun] = constructor_call_str;
     num_fun++;
   });
 
@@ -951,20 +961,20 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
     Object.keys(program_info.MethodsInfo[class_name]).forEach(function (method_name){
 
-      curr_test="";
+      curr_test = all_recursive_create_functions_str;
 
-      if(number_test[method_name]===undefined)
+      if(number_test[method_name] === undefined)
         number_test[method_name]=1;
       else
         number_test[method_name]++;
       
       var comment = "Comment1Test"+SPACE_STR+"of"+SPACE_STR+class_name+APOSTROPHE_STR+"s"+SPACE_STR+"method"+COLONS_STR+method_name+"Comment2();";
       tests.push(str2ast(comment));
-      curr_test+=comment+"\n";
+      curr_test += comment+"\n";
 
       var ret = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
       tests.push(ret.stmt);
-      curr_test+=ast2str(ret.stmt)+"\n";
+      curr_test += ast2str(ret.stmt)+"\n";
 
       tests.push(ENTER_FUNC);
 
@@ -984,7 +994,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       if(all_cases.length>0){
         var combinations = createCombinations(all_cases);
         for(var i = 0;i<combinations.length;i++){
-          method_call_str ="test"+number_test[method_name]+"_"+method_name+"("+combinations[i]+");";
+          method_call_str = "test"+number_test[method_name]+"_"+method_name+"("+combinations[i]+");";
           method_call = str2ast(method_call_str);
           tests.push(method_call);
           curr_test += "\n"+method_call_str;
@@ -1002,7 +1012,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
       fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
-      fun_names[num_fun]=method_call_str;
+      fun_names[num_fun] = method_call_str;
       num_fun++;
     });
   });
@@ -1011,9 +1021,9 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   //Functions tests will be created
   Object.keys(program_info.FunctionsInfo).forEach(function (fun_name) { 
 
-    curr_test="";
+    curr_test = all_recursive_create_functions_str;
 
-    if(number_test[fun_name]===undefined)
+    if(number_test[fun_name] === undefined)
       number_test[fun_name]=1;
     else
       number_test[fun_name]++;
@@ -1083,7 +1093,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     if(all_cases.length>0){
       var combinations = createCombinations(all_cases);
       for(var i = 0;i<combinations.length;i++){
-        fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"("+combinations[i]+");";
+        fun_call_str = "test"+number_test[fun_name]+"_"+fun_name+"("+combinations[i]+");";
         fun_call = str2ast(fun_call_str);
         tests.push(fun_call);
         curr_test += "\n"+fun_call_str;
@@ -1092,7 +1102,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     }
 
     else{
-      fun_call_str ="test"+number_test[fun_name]+"_"+fun_name+"();"
+      fun_call_str = "test"+number_test[fun_name]+"_"+fun_name+"();"
       fun_call = str2ast(fun_call_str);
       tests.push(fun_call);
       curr_test += "\n"+fun_call_str;
