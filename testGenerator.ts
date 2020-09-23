@@ -285,13 +285,8 @@ function createObjectRecursiveSymbParams(class_name:string, program_info:finder.
     
   }
 
-  if(program_info.ConstructorsInfo[class_name].length>1) {
-    var switch_stmt = createSwitchStmt(control_obj_var, objs);
-    stmts.push(switch_stmt); 
-  }
-  else {
-    stmts.push(objs[0]);
-  }
+  var switch_stmt = createSwitchStmt(control_obj_var, objs);
+  stmts.push(switch_stmt); 
 
   stmts.push(ENTER_FUNC);
 
@@ -730,9 +725,6 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
     control_nums = control_nums.concat(ret_args.control_num);
   }
 
-
-  var method_return_str = program_info.Checker.typeToString(method_info.ret_type);
-
   //Method call creation
   var x = freshXVar();
   var ret_str = `var ${x} = ${ret_obj.var}.${method_name}(${ret_args.vars_str})`;
@@ -894,7 +886,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     var recursive_create_function = createObjectRecursiveSymbParams(class_name,program_info);
     tests.push(recursive_create_function);
     recursive_create_functions[class_name] = ast2str(recursive_create_function);
-    all_recursive_create_functions_str += ast2str(recursive_create_function)+"\n"; 
+    all_recursive_create_functions_str += ast2str(recursive_create_function)+"\n\n"; 
   });
 
   tests.push(ENTER_FUNC);
@@ -902,7 +894,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   //Constructors tests will be created
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
 
-    curr_test = all_recursive_create_functions_str;
+    curr_test = all_recursive_create_functions_str+"\n";
 
     if(number_test[class_name] === undefined)
       number_test[class_name] = 1;
@@ -961,7 +953,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
     Object.keys(program_info.MethodsInfo[class_name]).forEach(function (method_name){
 
-      curr_test = all_recursive_create_functions_str;
+      curr_test = all_recursive_create_functions_str+"\n";
 
       if(number_test[method_name] === undefined)
         number_test[method_name]=1;
@@ -1021,7 +1013,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   //Functions tests will be created
   Object.keys(program_info.FunctionsInfo).forEach(function (fun_name) { 
 
-    curr_test = all_recursive_create_functions_str;
+    curr_test = all_recursive_create_functions_str+"\n";
 
     if(number_test[fun_name] === undefined)
       number_test[fun_name]=1;
