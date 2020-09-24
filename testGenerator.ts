@@ -881,13 +881,18 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var number_test:finder.HashTable<number> = {};
   var recursive_create_functions:finder.HashTable<string> = {};
   var all_recursive_create_functions_str:string = "";
+  var max_constructors_recursive_objects:number = 0;
 
   Object.keys(program_info.cycles_hash).forEach(function (class_name) {
     var recursive_create_function = createObjectRecursiveSymbParams(class_name,program_info);
     tests.push(recursive_create_function);
     recursive_create_functions[class_name] = ast2str(recursive_create_function);
-    all_recursive_create_functions_str += ast2str(recursive_create_function)+"\n\n"; 
+    all_recursive_create_functions_str += ast2str(recursive_create_function)+"\n\n";
+
+    if(max_constructors_recursive_objects < program_info.ConstructorsInfo[class_name].length)
+      max_constructors_recursive_objects = program_info.ConstructorsInfo[class_name].length;
   });
+  console.log("Max number of constructors of cyclic objects: "+max_constructors_recursive_objects);
 
   tests.push(ENTER_FUNC);
 
