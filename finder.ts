@@ -62,13 +62,18 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
         return;
     
 
-    //-----Classes handling-----
-    else if (ts.isClassDeclaration(node) && node.name) {
+    //-----Classes and Interfaces handling-----
+    else if ((ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) && node.name) {
         
         const symbol = checker.getSymbolAtLocation(node.name);
         
-        //Store the type of the class in the position "<ClassName>" of ClassInfo
-        prog_info.ClassesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
+        //Store the type of the class in the position "<ClassName>" of ClassesInfo
+        if(ts.isClassDeclaration(node))
+            prog_info.ClassesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
+        
+        //Store the type of the interface in the position "<InterfaceName>" of InterfacesInfo
+        else if(ts.isInterfaceDeclaration(node))
+            prog_info.InterfacesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
 
 
         //-----Constructors, methods and properties handling-----
@@ -100,7 +105,7 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
             }
 
             //-----Methods handling-----
-            else if (ts.isMethodDeclaration(member)) {
+            else if (ts.isMethodDeclaration(member) || ts.isMethodSignature(member)) {
 
                 //Must initialize sub-hashtable, otherwise it is undefined
                 if(prog_info.MethodsInfo[symbol.getName()]===undefined)
@@ -108,24 +113,24 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
 
                 prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()] = new ComposedInfo();
 
-                //Store the types of the parameters in arg_types in the position "<ClassName><MethodName>" of MethodsInfo 
+                //Store the types of the parameters in arg_types in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
                 for(const parameter of member.parameters) {
                     const symbol_p = checker.getSymbolAtLocation(parameter.name);
                     prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(symbol_p, symbol_p.valueDeclaration!));
                 }
 
-                //Store the return type of the method in ret_type in the position "<ClassName><MethodName>" of MethodsInfo 
+                //Store the return type of the method in ret_type in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
                 prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()].ret_type = checker.getTypeAtLocation(member.type);
             }
 
             //-----Properties handling-----
-            else if(ts.isPropertyDeclaration(member)){
+            else if(ts.isPropertyDeclaration(member) || ts.isPropertySignature(member)){
 
                 //Must initialize sub-hashtable, otherwise it is undefined
                 if(prog_info.PropertiesInfo[symbol.getName()]===undefined)
                     prog_info.PropertiesInfo[symbol.getName()] = {};
 
-                //Stores the property type in the position"<ClassName><PropertyName>" of PropertiesInfo
+                //Stores the property type in the position"<Class/InterfaceName><PropertyName>" of PropertiesInfo
                 prog_info.PropertiesInfo[symbol.getName()][member_symbol.getName()] = checker.getTypeAtLocation(member.type);
             }
         }
@@ -147,53 +152,6 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
             
             //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
             prog_info.FunctionsInfo[symbol.getName()].ret_type = signature.getReturnType();
-        }
-    }
-
-    //-----Interfaces handling-----
-    else if(ts.isInterfaceDeclaration(node) && node.name) {
-
-        const symbol = checker.getSymbolAtLocation(node.name);
-
-        prog_info.InterfacesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
-        
-        for(const member of node.members) {
-
-            const member_symbol = checker.getSymbolAtLocation(member.name);
-
-            //-----Methods handling-----
-            if (ts.isMethodDeclaration(member)) {
-                console.log(symbol.getName()+"'s method : "+member_symbol.getName());
-                /*
-                //Must initialize sub-hashtable, otherwise it is undefined
-                if(prog_info.MethodsInfo[symbol.getName()]===undefined)
-                    prog_info.MethodsInfo[symbol.getName()] = {};
-
-                prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()] = new ComposedInfo();
-
-                //Store the types of the parameters in arg_types in the position "<ClassName><MethodName>" of MethodsInfo 
-                for(const parameter of member.parameters) {
-                    const symbol_p = checker.getSymbolAtLocation(parameter.name);
-                    prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()].arg_types.push(checker.getTypeOfSymbolAtLocation(symbol_p, symbol_p.valueDeclaration!));
-                }
-
-                //Store the return type of the method in ret_type in the position "<ClassName><MethodName>" of MethodsInfo 
-                prog_info.MethodsInfo[symbol.getName()][member_symbol.getName()].ret_type = checker.getTypeAtLocation(member.type);
-                */
-            }
-
-            //-----Properties handling-----
-            else if(ts.isPropertyDeclaration(member)){
-                console.log(symbol.getName()+"'s property : "+member_symbol.getName());
-                /*
-                //Must initialize sub-hashtable, otherwise it is undefined
-                if(prog_info.PropertiesInfo[symbol.getName()]===undefined)
-                    prog_info.PropertiesInfo[symbol.getName()] = {};
-
-                //Stores the property type in the position"<ClassName><PropertyName>" of PropertiesInfo
-                prog_info.PropertiesInfo[symbol.getName()][member_symbol.getName()] = checker.getTypeAtLocation(member.type);
-                */
-            }
         }
     }
 }
