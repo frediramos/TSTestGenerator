@@ -655,8 +655,33 @@ function createUnionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
   }
 }
 
+//::::::::This function generates the mock constructor for an interface::::::::
+function createInterfaceMockConstructor(interface_name:string, program_info:finder.ProgramInfo){
+  var stmts = [];
+  var control_vars = [];
+  var control_nums = [];
 
-//::::::::This function generates the call of a method::::::::
+  Object.keys(program_info.PropertiesInfo[interface_name]).forEach(function (property_name) {
+    var ret = createSymbAssignment(program_info.PropertiesInfo[interface_name][property_name],program_info);
+    stmts=stmts.concat(ret.stmts); 
+    var property_assigment_str = `this.${property_name} = ${ret.var};`
+    stmts.push(str2ast(property_assigment_str));
+
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+      control_nums = control_nums.concat(ret.control_num);
+    }    
+  });
+  
+  return {
+    stmts:createFunctionDeclaration(interface_name,stmts,control_vars),
+    control: control_vars,
+    control_num: control_nums
+  }
+}
+
+
+//::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
   var symb_vars = [];
   var stmts = []; 
@@ -880,14 +905,15 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
   var recursive_create_functions:finder.HashTable<string> = {};
-  var all_recursive_create_functions_str:string = "";
+  var constant_code_str:string = "";
   var max_constructors_recursive_objects:number = 0;
 
+  //Create functions ganerated for when there is cyclic construction in the objects 
   Object.keys(program_info.cycles_hash).forEach(function (class_name) {
     var recursive_create_function = createObjectRecursiveSymbParams(class_name,program_info);
     tests.push(recursive_create_function);
     recursive_create_functions[class_name] = ast2str(recursive_create_function);
-    all_recursive_create_functions_str += ast2str(recursive_create_function)+"\n\n";
+    constant_code_str += ast2str(recursive_create_function)+"\n\n";
 
     if(max_constructors_recursive_objects < program_info.ConstructorsInfo[class_name].length)
       max_constructors_recursive_objects = program_info.ConstructorsInfo[class_name].length;
@@ -896,10 +922,23 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
   tests.push(ENTER_FUNC);
 
+  //Creation of Mock constructors and methods for interfaces
+  Object.keys(program_info.InterfacesInfo).forEach(function (interface_name) {
+    var interface_mock_constructor = createInterfaceMockConstructor(interface_name,program_info);
+    constant_code_str += ast2str(interface_mock_constructor.stmts)+"\n\n";
+
+    Object.keys(program_info.MethodsInfo[interface_name]).forEach(function (method_name) {
+      var interface_method_info = program_info.MethodsInfo[interface_name][method_name];
+      var interface_mock_method = createMockFunction(interface_method_info.arg_types,interface_method_info.ret_type,program_info);
+      constant_code_str += interface_name+".prototype."+method_name+" = "+ast2str(interface_mock_method.stmts[0])+"\n\n";
+    });
+  });
+
+
   //Constructors tests will be created
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
 
-    curr_test = all_recursive_create_functions_str+"\n";
+    curr_test = constant_code_str+"\n";
 
     if(number_test[class_name] === undefined)
       number_test[class_name] = 1;
@@ -958,7 +997,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
     Object.keys(program_info.MethodsInfo[class_name]).forEach(function (method_name){
 
-      curr_test = all_recursive_create_functions_str+"\n";
+      curr_test = constant_code_str+"\n";
 
       if(number_test[method_name] === undefined)
         number_test[method_name]=1;
@@ -1018,7 +1057,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   //Functions tests will be created
   Object.keys(program_info.FunctionsInfo).forEach(function (fun_name) { 
 
-    curr_test = all_recursive_create_functions_str+"\n";
+    curr_test = constant_code_str+"\n";
 
     if(number_test[fun_name] === undefined)
       number_test[fun_name]=1;

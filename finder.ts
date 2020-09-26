@@ -72,10 +72,26 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
             prog_info.ClassesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
         
         //Store the type of the interface in the position "<InterfaceName>" of InterfacesInfo
-        else if(ts.isInterfaceDeclaration(node))
+        else if(ts.isInterfaceDeclaration(node)){
             prog_info.InterfacesInfo[symbol.getName()] = checker.getTypeAtLocation(node);
 
+            //Placing an interface constructor in the constructors info that will be generated in testGenerator.ts
+            //It will have no arguments because the property types will be generated and assigned to the object fields
 
+            //Must initialize sub-array, otherwise it is undefined
+            if(prog_info.ConstructorsInfo[symbol.getName()]===undefined)
+                prog_info.ConstructorsInfo[symbol.getName()] = [];
+            
+            //Creating a ComposedInfo object in the position "<InterfaceName><0>" of ConstructorsInfo since it will only have 1 constructor
+            prog_info.ConstructorsInfo[symbol.getName()][0] = new ComposedInfo();
+
+            //Store the types of the parameters in arg_types in the position "<InterfaceName><0>" of ConstructorsInfo which will be []
+            prog_info.ConstructorsInfo[symbol.getName()][0].arg_types = [];
+
+            //Store the return type of the constructor in ret_type in the position "<InterfaceName><0>" of ConstructorsInfo 
+            prog_info.ConstructorsInfo[symbol.getName()][0].ret_type = checker.getTypeAtLocation(node);
+        }
+            
         //-----Constructors, methods and properties handling-----
         
         var constructor_count:number = 0;
