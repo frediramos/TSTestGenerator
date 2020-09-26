@@ -308,6 +308,9 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
 
   var obj = freshObjectVar();
 
+  if(program_info.hasInterface(class_name))
+    obj = "interface_" + obj;
+
   var obj_str = `var ${obj}`; 
   stmts.push(str2ast(obj_str));
 
@@ -367,6 +370,10 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
         }
       } 
       
+      else if (program_info.hasInterface(type_str)) {
+        return createObjectSymbParams(type_str,program_info);
+      } 
+
       else if(isFunctionType(arg_type,program_info)){
         var ret_func_elements = getFunctionElements(arg_type,program_info);
         return createMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
@@ -704,6 +711,9 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
     }
 
     var obj = freshObjectVar();
+    if(program_info.hasInterface(class_name))
+      obj = "interface_" + obj;
+      
     objs[i] = obj;
     var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
       if (cur_str === "") return prox; 

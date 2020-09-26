@@ -30,9 +30,14 @@ export class ProgramInfo {
     InterfacesInfo: HashTable<ts.Type> = {};
     cycles_hash : HashTable<string[][]> = {};
 
-
     hasClass(class_name:string):boolean {
         if(this.ClassesInfo[class_name]===undefined)
+            return false;
+        return true;
+    }
+
+    hasInterface(interface_name:string):boolean {
+        if(this.InterfacesInfo[interface_name]===undefined)
             return false;
         return true;
     }
