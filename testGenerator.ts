@@ -3,6 +3,7 @@ var escodegen = require('escodegen');
 var fs = require('fs');
 import finder = require("./finder");
 import ts = require("typescript");
+import { setMaxListeners } from "process";
 
 
 //Class used to store the Cosette functions
@@ -72,6 +73,20 @@ function str2ast (str:string) {
   var ast = esprima.parse (str); 
 
   return ast.body[0];
+}
+
+
+//::::::::Turns function expression into function declaration::::::::
+function func_expr2func_decl (fun_name:string, func_expr){
+  return{
+    type : "FunctionDeclaration",
+    id : createIdentifier(fun_name),
+    params : func_expr.params,
+    body : func_expr.body,
+    generator : func_expr.generator,
+    expression : func_expr.expression,
+    async : func_expr.async
+  }
 }
 
 
@@ -167,7 +182,9 @@ function createStringSymbAssignment () {
 
   return {
       stmts: [str2ast(ret_str)], 
-      var: x 
+      var: x,
+      control: [],
+      control_num: []
   } 
 }
 
@@ -179,7 +196,9 @@ function createNumberSymbAssignment () {
 
     return {
         stmts: [str2ast(ret_str)], 
-        var: x 
+        var: x,
+        control: [],
+        control_num: []
     } 
 }
 
@@ -196,7 +215,9 @@ function createObjectRecursiveCall(class_name:string,fuel_var:string){
   var call = `var ${recurs_obj_var} = ${getCreateMethodName(class_name)}(${fuel_var});`;
   return {
     stmts: [ str2ast(call) ],
-    var: recurs_obj_var
+    var: recurs_obj_var,
+    control: [],
+    control_num: []
   }
 }
 
@@ -255,6 +276,19 @@ function generateReturnCall(class_name:string,args:string[]){
         name: class_name
       },
       arguments: args_ast
+    }
+  }
+}
+
+
+//::::::::This function generates the call of a return statement::::::::
+function generateReturnVar(variable:string){
+    
+  return {
+    type: "ReturnStatement",
+    argument: {
+      type: "Identifier",
+      name: variable
     }
   }
 }
@@ -409,7 +443,15 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
       //If the type is a function it will generate a mock function with the same return type to simulate a function being given as parameter 
       else if(isFunctionType(arg_type,program_info)){
         var ret_func_elements = getFunctionElements(arg_type,program_info);
-        return createMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
+        var fun_name = freshMockFuncVar();
+        var func_expr = createMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
+        var func_decl = func_expr2func_decl(fun_name, func_expr);
+        return {
+          stmts: [func_decl],
+          var: fun_name,
+          control: [],
+          control_num: []
+        }
       } 
       
       //If the type is an array it will generate 3 possible array assignments
@@ -445,7 +487,7 @@ function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo,fu
     symb_vars.push(ret.var); 
     //Checks if any argument has more than one possible value
     if(ret.control!==undefined){
-      control_vars = control_vars.concat(ret.control);
+      control_vars = control_vars.concat(ret.control);   
       control_nums = control_nums.concat(ret.control_num);
     }
       
@@ -500,6 +542,58 @@ function createFunctionDeclaration(method_name:string,stmts,params_str:string[])
   }
 }
 
+function createFunctionExpression(stmts,params_str:string[]) {
+  var params = [];
+
+  //Fills the params array with the parameter format that will be used to create the function declaration
+  for(var i=0;i<params_str.length;i++){
+    params.push({
+      type:"Identifier",
+      name: params_str[i]
+    })
+  }
+
+  return{
+    type : "FunctionDeclaration",
+    id : null,
+    params : params,
+    body : generateBlock(stmts),
+    generator : false,
+    expression : false,
+    async : false
+  }
+}
+
+
+//This function will generate the assignment of a prototype to a Mock function
+function createPrototypeAssignment(interface_name:string, method_name:string, interface_mock_method){
+  return {
+    "type": "AssignmentExpression",
+    "operator": "=",
+    "left": {
+      "type": "MemberExpression",
+      "computed": false,
+      "object": {
+        "type": "MemberExpression",
+        "computed": false,
+        "object": {
+          "type": "Identifier",
+          "name": interface_name
+        },
+        "property": {
+          "type": "Identifier",
+          "name": "prototype"
+        }
+      },
+      "property": {
+        "type": "Identifier",
+        "name": method_name
+      }
+    },
+    "right": interface_mock_method
+  }
+}
+
 
 //::::::::This function generates the call to a function::::::::
 function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.ProgramInfo){
@@ -535,19 +629,22 @@ function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:fi
   }
 
   calls.push(ret_val.stmts[0]);
-  var block_stmt = generateBlock(calls);
+  calls.push(generateReturnVar(ret_val.var));
+  var func_expr = createFunctionExpression(calls,ret_args.vars);
+  /*var block_stmt = generateBlock(calls);
   var fun_name = freshMockFuncVar();
 
   //Creation of the mock function as a string 
   var fun_str= `function ${fun_name} (${ret_args.vars_str}) {
   ${ast2str(block_stmt)}
   return ${ret_val.var};
-  }`;
+  }`;*/
   
-  return {
-    stmts: [str2ast(fun_str)],
+  /*return {
+    stmts: [func_expr],
     var: fun_name
-  }
+  }*/
+  return func_expr;
 }
 
 
@@ -749,12 +846,11 @@ function createInterfaceMockConstructor(interface_name:string, program_info:find
   });
   
   return {
-    stmts:createFunctionDeclaration(interface_name,stmts,control_vars),
+    stmts: createFunctionDeclaration(interface_name,stmts,control_vars),
     control: control_vars,
     control_num: control_nums
   }
 }
-
 
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
@@ -1032,7 +1128,8 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     Object.keys(program_info.MethodsInfo[interface_name]).forEach(function (method_name) {
       var interface_method_info = program_info.MethodsInfo[interface_name][method_name];
       var interface_mock_method = createMockFunction(interface_method_info.arg_types,interface_method_info.ret_type,program_info);
-      constant_code_str += interface_name+".prototype."+method_name+" = "+ast2str(interface_mock_method.stmts[0])+"\n\n";
+      var proto_assignment = createPrototypeAssignment(interface_name, method_name, interface_mock_method);
+      constant_code_str += ast2str(proto_assignment)+"\n\n";
     });
   });
 
