@@ -10,6 +10,9 @@ import { setMaxListeners } from "process";
 class CosetteFunctions {
   number_creator:string = "symb_number"
   string_creator:string = "symb_string"
+  boolean_creator:string = "symb_boolean"
+  null_creator:string = "null"
+  void_creator:string = "undefined"
 
   //function that will return the string of the call of the symbolic number creator
   numberCreator(x:string):string{
@@ -19,6 +22,21 @@ class CosetteFunctions {
   //function that will return the string of the call of the symbolic string creator
   stringCreator(x:string):string{
     return `${this.string_creator}(${x})`
+  }
+
+  //function that will return the string of the call of the symbolic boolean creator
+  booleanCreator(x:string):string{
+    return `${this.boolean_creator}(${x})`
+  }
+  
+  //function that will return the string of the call of the null creator
+  nullCreator():string{
+    return `${this.null_creator}`
+  }
+
+  //function that will return the string of the call of the void creator
+  voidCreator():string{
+    return `${this.void_creator}`
   }
 
   //function that will return the string of the assertion of a typeof 
@@ -200,6 +218,48 @@ function createNumberSymbAssignment () {
         control: [],
         control_num: []
     } 
+}
+
+
+//::::::::Function used to assign a boolean symbol to a variable::::::::
+function createBooleanSymbAssignment () { 
+  var x = freshXVar(); 
+  var ret_str = `var ${x} = ${cosFunc.booleanCreator(x)}`; 
+
+  return {
+      stmts: [str2ast(ret_str)], 
+      var: x,
+      control: [],
+      control_num: []
+  } 
+}
+
+
+//::::::::Function used to assign null to a variable::::::::
+function createNullAssignment () { 
+  var x = freshXVar(); 
+  var ret_str = `var ${x} = ${cosFunc.nullCreator()}`; 
+
+  return {
+      stmts: [str2ast(ret_str)], 
+      var: x,
+      control: [],
+      control_num: []
+  } 
+}
+
+
+//::::::::Function used to assign undefined to a variable::::::::
+function createVoidAssignment () { 
+  var x = freshXVar(); 
+  var ret_str = `var ${x} = ${cosFunc.voidCreator()}`; 
+
+  return {
+      stmts: [str2ast(ret_str)], 
+      var: x,
+      control: [],
+      control_num: []
+  } 
 }
 
 
@@ -414,11 +474,20 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
 
   //Based on the type it will decide what the program will generate
   switch (type_str) {
-    //If the type is a string generates a string assignment 
+    //If the type is a string generates a symbolic string assignment 
     case "string" : return createStringSymbAssignment(); 
 
-    //If the type is a number generates a string assignment
+    //If the type is a number generates a symbolic number assignment
     case "number" : return createNumberSymbAssignment();
+
+    //If the type is a boolean generates a symbolic boolean assignment
+    case "boolean" : return createBooleanSymbAssignment();
+
+    //If the type is null generates a null assignment
+    case "null" : return createNullAssignment();
+
+        //If the type is null generates a undefined assignment
+    case "void" : return createVoidAssignment();
 
     //if the type is not a primitive type
     default:
@@ -944,7 +1013,7 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
   
   //Creates the assertion of the variable with the method's return type to the expected return type
   var ret_asrt = generateFinalAsrt(method_info.ret_type,x,program_info);
-  stmts.push(ret_asrt.stmt);
+  stmts = stmts.concat(ret_asrt.stmt);
   stmts.push(str2ast(`Assert(${ret_asrt.var})`));
 
   stmts.push(ENTER_FUNC); 
@@ -981,13 +1050,13 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   var ret_str = `var ${x} = ${fun_name}(${ret_args.vars_str})`;
   var ret_ast = str2ast(ret_str);
   stmts.push(ret_ast);  
-  
+
   //Creates the assertion of the variable with the function's return type to the expected return type
-  var ret_asrt=generateFinalAsrt(function_info.ret_type,x,program_info);
-  stmts.push(ret_asrt.stmt);
+  var ret_asrt = generateFinalAsrt(function_info.ret_type,x,program_info);
+  stmts = stmts.concat(ret_asrt.stmt);
   stmts.push(str2ast(`Assert(${ret_asrt.var})`));
   stmts.push(ENTER_FUNC); 
-
+  
   return {
     stmt: createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,control_vars),
     control: control_vars,
@@ -998,24 +1067,57 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
 
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
 function generateFinalStringAsrt(ret_var:string) { 
-    var x = freshAssertVar();
-    
-    var ret_str = `var ${x} = typeof ${ret_var} === "string";`; 
-    return {
-      stmt:str2ast(ret_str),
-      var:x
-    } 
+  var x = freshAssertVar();
+  
+  var ret_str = `var ${x} = typeof ${ret_var} === "string";`; 
+  return {
+    stmt:[str2ast(ret_str)],
+    var:x
+  } 
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is a number:::::::: 
 function generateFinalNumberAsrt(ret_var:string) { 
   var x = freshAssertVar();
 
-    var ret_str = `var ${x} = typeof ${ret_var} === "number";`; 
-    return {
-      stmt:str2ast(ret_str),
-      var:x
-    }
+  var ret_str = `var ${x} = typeof ${ret_var} === "number";`; 
+  return {
+    stmt:[str2ast(ret_str)],
+    var:x
+  }
+}
+
+//::::::::This function generates an assertion to check if the return type of a function is a boolean:::::::: 
+function generateFinalBooleanAsrt(ret_var:string) { 
+  var x = freshAssertVar();
+
+  var ret_str = `var ${x} = typeof ${ret_var} === "boolean";`; 
+  return {
+    stmt:[str2ast(ret_str)],
+    var:x
+  }
+}
+
+//::::::::This function generates an assertion to check if the return type of a function is null:::::::: 
+function generateFinalNullAsrt(ret_var:string) { 
+  var x = freshAssertVar();
+
+  var ret_str = `var ${x} = ${ret_var} === null;`; 
+  return {
+    stmt:[str2ast(ret_str)],
+    var:x
+  }
+}
+
+//::::::::This function generates an assertion to check if the return type of a function is undefined:::::::: 
+function generateFinalVoidAsrt(ret_var:string) { 
+  var x = freshAssertVar();
+
+  var ret_str = `var ${x} = typeof ${ret_var} === "undefined";`; 
+  return {
+    stmt:[str2ast(ret_str)],
+    var:x
+  }
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
@@ -1024,22 +1126,23 @@ function generateFinalObjectAsrt(ret_var:string,ret_type: string) {
 
   var ret_str = `var ${x} = ${ret_var} instanceof ${ret_type};`; 
   return {
-    stmt:str2ast(ret_str),
+    stmt:[str2ast(ret_str)],
     var:x
   }
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
-function generateFinalUnionAsrt(ret_var:string,ret_types: string[]) { 
+function generateFinalUnionAsrt(stmts,assert_vars: string[]) { 
   var x = freshAssertVar();
-
-  var ret_str = `var ${x} = (${ret_var} typeof ${ret_types[0]}`; 
-  for(var i = 1;i<ret_types.length;i++)
-    ret_str += ` || ${ret_var} typeof ${ret_types[i]}`
-  ret_str += `);`
-  console.log(ret_str);
+  
+  var ret_str = `var ${x} = ${assert_vars[0]}`; 
+  for(var i = 1;i<assert_vars.length;i++){
+    ret_str += ` || ${assert_vars[i]}`;
+  }
+  ret_str += `;`
+  stmts.push(str2ast(ret_str));
   return {
-    stmt:str2ast(ret_str),
+    stmt:stmts,
     var:x
   }
 }
@@ -1057,6 +1160,15 @@ function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_info : fin
 
     //If the type is a number it will generate the assertion to a number
     case "number" : return generateFinalNumberAsrt(ret_var); 
+
+    //If the type is a boolean it will generate the assertion to a boolean
+    case "boolean" : return generateFinalBooleanAsrt(ret_var); 
+
+    //If the type is null it will generate the assertion to null
+    case "null" : return generateFinalNullAsrt(ret_var); 
+
+    //If the type is null it will generate the assertion to undefined
+    case "void" : return generateFinalVoidAsrt(ret_var); 
     
     //if the type is not a primitive type
     default: 
@@ -1065,12 +1177,21 @@ function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_info : fin
         return  generateFinalObjectAsrt(ret_var, ret_type_str);
       } 
 
+      //If the type is a class it will assert to an instance of that interface
+      if (program_info.hasInterface(ret_type_str)) {
+        return  generateFinalObjectAsrt(ret_var, ret_type_str);
+      } 
+
       //If the type is an union it will assert to one of the possible types
       else if(isUnionType(ret_type)){
-        var ret_types:string[] = []
-        for(var i = 0;i<ret_type["types"].length;i++)
-          ret_types.push(program_info.Checker.typeToString(ret_type["types"][i]));
-        return generateFinalUnionAsrt(ret_var,ret_types);
+        var assert_vars = [];
+        var stmts = [];
+        for(var i = 0;i<ret_type["types"].length;i++){
+          var type_asrt = generateFinalAsrt(ret_type["types"][i], ret_var, program_info);
+          assert_vars.push(type_asrt.var);
+          stmts = stmts.concat(type_asrt.stmt);
+        }
+        return generateFinalUnionAsrt(stmts,assert_vars);
       } 
       
       //If the type reaches this case it is a type that the assertion is unsupported by the testGenerator
@@ -1114,7 +1235,6 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     if(max_constructors_recursive_objects < program_info.ConstructorsInfo[class_name].length)
       max_constructors_recursive_objects = program_info.ConstructorsInfo[class_name].length;
   });
-  console.log("Max number of constructors of cyclic objects: "+max_constructors_recursive_objects);
 
   tests.push(ENTER_FUNC);
 
