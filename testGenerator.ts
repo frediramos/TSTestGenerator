@@ -1038,6 +1038,7 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
   //Creation the arguments of the function 
   var ret_args = createArgSymbols(function_info.arg_types,program_info);
   stmts=stmts.concat(ret_args.stmts);
+
   //Checks if any argument has more than one possible value
   if(ret_args.control[0]!==undefined){
     control_vars = control_vars.concat(ret_args.control);

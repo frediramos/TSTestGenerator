@@ -165,6 +165,7 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
         const functionType = checker.getTypeOfSymbolAtLocation(symbol,symbol.valueDeclaration!);
 
         for(const signature of functionType.getCallSignatures()) {
+            console.log(checker.signatureToString(signature));
 
             //Store the types of the parameters in arg_types in the position "<FunctionName>" of FunctionsInfo 
             for(const parameter of signature.parameters) {
@@ -173,6 +174,7 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
             
             //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
             prog_info.FunctionsInfo[symbol.getName()].ret_type = signature.getReturnType();
+            console.log(signature.getReturnType());
         }
     }
 }
