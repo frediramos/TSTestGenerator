@@ -1,4 +1,5 @@
 import * as ts from "typescript";
+import { options } from "yargs";
 
 
 //Class to store parameters type, return type and class type if it is a class method and not a function
@@ -46,10 +47,10 @@ export class ProgramInfo {
 //::::::::Function to set up for the traversation of the AST::::::::
 export function finder(fileNames:string[]):ProgramInfo {
 
-    var prog_info = new ProgramInfo();
-    const program = ts.createProgram(fileNames, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS});
+    var prog_info = new ProgramInfo();  
+    const program = ts.createProgram(fileNames, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS, strictNullChecks: true});
     const checker = program.getTypeChecker();
-    prog_info.Checker = checker;
+    prog_info.Checker = checker; 
     const visitASTWithChecker = visitAST.bind(undefined, checker,prog_info);
 
     for (const sourceFile of program.getSourceFiles()) 
@@ -165,7 +166,6 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
         const functionType = checker.getTypeOfSymbolAtLocation(symbol,symbol.valueDeclaration!);
 
         for(const signature of functionType.getCallSignatures()) {
-            console.log(checker.signatureToString(signature));
 
             //Store the types of the parameters in arg_types in the position "<FunctionName>" of FunctionsInfo 
             for(const parameter of signature.parameters) {
@@ -174,7 +174,6 @@ function visitAST(checker: ts.TypeChecker,  prog_info:ProgramInfo, node: ts.Node
             
             //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
             prog_info.FunctionsInfo[symbol.getName()].ret_type = signature.getReturnType();
-            console.log(signature.getReturnType());
         }
     }
 }
