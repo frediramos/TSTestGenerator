@@ -1170,7 +1170,8 @@ function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_info : fin
     case "null" : return generateFinalNullAsrt(ret_var); 
 
     //If the type is null it will generate the assertion to undefined
-    case "void" : return generateFinalVoidAsrt(ret_var); 
+    case "void" : 
+    case "undefined" : return generateFinalVoidAsrt(ret_var); 
     
     //if the type is not a primitive type
     default: 
@@ -1257,14 +1258,15 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     constant_code_str += ast2str(interface_mock_constructor.stmts)+"\n\n";
 
     //Creation of the mock methods for the interface
-    Object.keys(program_info.MethodsInfo[interface_name]).forEach(function (method_name) {
-      var interface_method_info = program_info.MethodsInfo[interface_name][method_name];
-      var interface_mock_method = createMockFunction(interface_method_info.arg_types,interface_method_info.ret_type,program_info);
-      var proto_assignment = createPrototypeAssignment(interface_name, method_name, interface_mock_method);
-      constant_code_str += ast2str(proto_assignment)+"\n\n";
-    });
+    if(program_info.MethodsInfo[interface_name]){
+      Object.keys(program_info.MethodsInfo[interface_name]).forEach(function (method_name) {
+        var interface_method_info = program_info.MethodsInfo[interface_name][method_name];
+        var interface_mock_method = createMockFunction(interface_method_info.arg_types,interface_method_info.ret_type,program_info);
+        var proto_assignment = createPrototypeAssignment(interface_name, method_name, interface_mock_method);
+        constant_code_str += ast2str(proto_assignment)+"\n\n";
+      });
+    }
   });
-
 
   //Iterates over all the object that have at least one constructor
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
