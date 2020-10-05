@@ -1224,6 +1224,16 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var constant_code_str:string = "";
   var max_constructors_recursive_objects:number = 0;
 
+  //Adding the code of the Assert function to the constant code generated
+  /*
+  constant_code_str += `function Assert(x) {
+    try{
+      if(x !== true) throw new Error(\"Assertion failure\");
+    } catch(e) {
+      console.log(e.message);
+    }`;
+  */
+ 
   //Create functions generated for when there is cyclic construction in the objects 
   Object.keys(program_info.cycles_hash).forEach(function (class_name) {
     //Recursive creation function generation
