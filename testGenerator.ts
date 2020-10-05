@@ -487,7 +487,8 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
     case "null" : return createNullAssignment();
 
         //If the type is null generates a undefined assignment
-    case "void" : return createVoidAssignment();
+    case "void" : 
+    case "undefined" : return createVoidAssignment();
 
     //if the type is not a primitive type
     default:
