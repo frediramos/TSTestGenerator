@@ -3,7 +3,6 @@ var escodegen = require('escodegen');
 var fs = require('fs');
 import finder = require("./finder");
 import ts = require("typescript");
-import { setMaxListeners } from "process";
 
 
 //Class used to store the Cosette functions
@@ -52,7 +51,7 @@ var cosFunc = new CosetteFunctions();
 const BRANCHING_LIMIT = 3;
 
 //Limit of the recursive call of a cyclic construction
-const FUEL = 3;
+const FUEL_VAR_DEPTH = 10;
 
 
 //Constants created for string manipulation in the end of the tests generation
@@ -141,6 +140,11 @@ function isUnionType(union_type:ts.Type){
   return union_type.hasOwnProperty("types");
 }
 
+//::::::::Checks if the given type is an object literal type::::::::
+function isObjectLiteralType(literal_type:ts.Type){
+  return literal_type.symbol && literal_type.symbol.declarations && literal_type.symbol.members; 
+}
+
 
 //::::::::Function used to create the name of some type of variable with the respective number::::::::
 function makeFreshVariable (prefix:string) {
@@ -178,7 +182,7 @@ var freshControlUnionVar = makeFreshVariable("control_union");
 function createCombinations(args) {
   var r = [];
   var max = args.length-1;
-  function helper(arr, i) {
+  function helper(arr, i) {  
       for (var j=0, l=args[i].length; j<l; j++) {
           var a = arr.slice(0); // clone arr
           a.push(args[i][j]);
@@ -486,7 +490,7 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
     //If the type is null generates a null assignment
     case "null" : return createNullAssignment();
 
-        //If the type is null generates a undefined assignment
+    //If the type is null generates a undefined assignment
     case "void" : 
     case "undefined" : return createVoidAssignment();
 
@@ -534,9 +538,13 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
         return createUnionType(arg_type,program_info);
       } 
 
+      else if(isObjectLiteralType(arg_type)){
+        return createObjectLiteralType(arg_type,program_info);
+      }
+
       //If the type reaches this case it is a type unsupported by the testGenerator
       else {
-        throw new Error ("createSymbAssignment: Unsupported type");
+        throw new Error ("createSymbAssignment: Unsupported type: "+type_str);
       }
   }
 }
@@ -631,6 +639,44 @@ function createFunctionExpression(stmts,params_str:string[]) {
     generator : false,
     expression : false,
     async : false
+  }
+}
+
+function createProperty(property_name:string, var_name:string){
+  return {
+    "type": "Property",
+    "key": {
+      "type": "Identifier",
+      "name": property_name
+    },
+    "computed": false,
+    "value": {
+      "type": "Identifier",
+      "name": var_name
+    },
+    "kind": "init",
+    "method": false,
+    "shorthand": false
+  }
+}
+
+function createLiteralObjectDeclaration(ret_var:string, properties:string[]){
+  return  {
+    "type": "VariableDeclaration",
+    "declarations": [
+      {
+        "type": "VariableDeclarator",
+        "id": {
+          "type": "Identifier",
+          "name": ret_var
+        },
+        "init": {
+          "type": "ObjectExpression",
+          "properties": properties
+        }
+      }
+    ],
+    "kind": "var"
   }
 }
 
@@ -894,6 +940,50 @@ function createUnionType(union_type:ts.Type,program_info:finder.ProgramInfo){
   }
 }
 
+
+//::::::::This function generates a symbolic assignment for each property of the object literal::::::::
+function createObjectLiteralType(object_literal_type:ts.Type,program_info:finder.ProgramInfo){
+  var stmts = [];
+  var properties = [];
+  var control_vars = [];
+  var control_nums = [];
+
+  //Stores the symbols of the object literal properties in a variable
+  var object_literal_symbols = object_literal_type.getProperties();
+
+  //Generates the property type variable 
+  Object.keys(object_literal_symbols).forEach(function (property_number) {
+    
+    var property_symbol = object_literal_symbols[property_number];
+    var property_type = program_info.Checker.getTypeOfSymbolAtLocation(property_symbol, property_symbol.valueDeclaration!);
+
+    var ret = createSymbAssignment(property_type, program_info);
+    stmts=stmts.concat(ret.stmts); 
+
+    var property_assigment = createProperty(property_symbol.escapedName, ret.var);
+    properties.push(property_assigment);
+
+    //Checks if any argument has more than one possible value
+    if(ret.control!==undefined){
+      control_vars = control_vars.concat(ret.control);
+      control_nums = control_nums.concat(ret.control_num);
+    }    
+  });
+
+  //Assigns the object properties to the symbolic variables
+  var ret_var = freshObjectVar();
+  var object_declaration = createLiteralObjectDeclaration(ret_var, properties);
+  stmts.push(object_declaration);
+
+  return {
+    stmts: stmts,
+    var:ret_var,
+    control: control_vars,
+    control_num: control_nums
+  }
+}
+
+
 //::::::::This function generates the mock constructor for an interface::::::::
 function createInterfaceMockConstructor(interface_name:string, program_info:finder.ProgramInfo){
   var stmts = [];
@@ -921,6 +1011,7 @@ function createInterfaceMockConstructor(interface_name:string, program_info:find
     control_num: control_nums
   }
 }
+
 
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
@@ -1133,13 +1224,29 @@ function generateFinalObjectAsrt(ret_var:string,ret_type: string) {
   }
 }
 
-//::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
+//::::::::This function generates an assertion to check if the return type of a function is one of the types in an Union::::::::
 function generateFinalUnionAsrt(stmts,assert_vars: string[]) { 
   var x = freshAssertVar();
   
   var ret_str = `var ${x} = ${assert_vars[0]}`; 
   for(var i = 1;i<assert_vars.length;i++){
     ret_str += ` || ${assert_vars[i]}`;
+  }
+  ret_str += `;`
+  stmts.push(str2ast(ret_str));
+  return {
+    stmt:stmts,
+    var:x
+  }
+}
+
+//::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
+function generateFinalObjectLiteralAsrt(stmts,assert_vars: string[]) { 
+  var x = freshAssertVar();
+  
+  var ret_str = `var ${x} = ${assert_vars[0]}`; 
+  for(var i = 1;i<assert_vars.length;i++){
+    ret_str += ` && ${assert_vars[i]}`;
   }
   ret_str += `;`
   stmts.push(str2ast(ret_str));
@@ -1189,12 +1296,35 @@ function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_info : fin
       else if(isUnionType(ret_type)){
         var assert_vars = [];
         var stmts = [];
+
+        //Generate an assert for each possible type that the Union can be 
         for(var i = 0;i<ret_type["types"].length;i++){
           var type_asrt = generateFinalAsrt(ret_type["types"][i], ret_var, program_info);
           assert_vars.push(type_asrt.var);
           stmts = stmts.concat(type_asrt.stmt);
         }
         return generateFinalUnionAsrt(stmts,assert_vars);
+      } 
+
+      //If the type is an object literal it will assert each property to the respective type
+      if (isObjectLiteralType(ret_type)) {
+        var assert_vars = [];
+        var stmts = [];
+        var object_literal_symbols = ret_type.getProperties();
+
+        //Generates the assert of each property of the object literal
+        Object.keys(object_literal_symbols).forEach(function (property_number) {
+          
+          var property_symbol = object_literal_symbols[property_number];
+          var property_type = program_info.Checker.getTypeOfSymbolAtLocation(property_symbol, property_symbol.valueDeclaration!);
+
+          var type_asrt = generateFinalAsrt(property_type, ret_var+"."+object_literal_symbols[property_number].escapedName, program_info);
+      
+          assert_vars.push(type_asrt.var);
+          stmts = stmts.concat(type_asrt.stmt);
+        });
+        
+        return  generateFinalObjectLiteralAsrt(stmts, assert_vars);
       } 
       
       //If the type reaches this case it is a type that the assertion is unsupported by the testGenerator
@@ -1224,18 +1354,12 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var number_test:finder.HashTable<number> = {};
   var recursive_create_functions:finder.HashTable<string> = {};
   var constant_code_str:string = "";
+  var all_cases = [];
+  var cases;
+  var combinations;
   var max_constructors_recursive_objects:number = 0;
+  
 
-  //Adding the code of the Assert function to the constant code generated
-  /*
-  constant_code_str += `function Assert(x) {
-    try{
-      if(x !== true) throw new Error(\"Assertion failure\");
-    } catch(e) {
-      console.log(e.message);
-    }`;
-  */
- 
   //Create functions generated for when there is cyclic construction in the objects 
   Object.keys(program_info.cycles_hash).forEach(function (class_name) {
     //Recursive creation function generation
@@ -1268,6 +1392,28 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     }
   });
 
+  //Creation of all the fuel array possibilities
+  if(program_info.cycles_hash){
+    all_cases = [];
+    var fuel_var = freshFuelVar();
+    constant_code_str += `var ${fuel_var} = [];\n`;
+    
+    for(var i = 0; i<FUEL_VAR_DEPTH; i++){
+      cases = [];
+      for (var j=0;j<max_constructors_recursive_objects;j++){
+        cases.push(j+1);
+      }
+
+      all_cases.push(cases);
+      
+      combinations = createCombinations(all_cases);
+      for(var j = 0; j<combinations.length; j++){
+        fuel_var = freshFuelVar();
+        constant_code_str += `var ${fuel_var} = [${combinations[j]}];\n`;
+      }
+    }
+  }
+
   //Iterates over all the object that have at least one constructor
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
 
@@ -1291,8 +1437,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     tests.push(ENTER_FUNC);
 
     //It will generate an array with the multiple options that each function will have for their switch statement(s), if they exist
-    var all_cases = [];
-    var cases;
+    all_cases = [];
     for(var i = 0; i<ret.control.length; i++){
       cases = [];
       for (var j=0;j<ret.control_num.length;j++){
@@ -1306,7 +1451,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
     //Generates the combinations that will be the arguments when calling the constructor's test function
     if(all_cases.length>0){
-      var combinations = createCombinations(all_cases);
+      combinations = createCombinations(all_cases);
       
       //For each combination it will generate a call to the constructor's test function
       for(var i = 0;i<combinations.length;i++){
@@ -1359,8 +1504,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       tests.push(ENTER_FUNC);
 
       //It will generate an array with the multiple options that each function will have for their switch statement(s), if they exist
-      var all_cases = [];
-      var cases;
+      all_cases = [];
       for(var i = 0; i<ret.control.length; i++){
         cases = [];
         for (var j=0;j<ret.control_num[i];j++){
@@ -1374,7 +1518,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
 
       //Generates the combinations that will be the arguments when calling the method's test function
       if(all_cases.length>0){
-        var combinations = createCombinations(all_cases);
+        combinations = createCombinations(all_cases);
         //For each combination it will generate a call to the method test function
         for(var i = 0;i<combinations.length;i++){
           method_call_str = "test"+number_test[method_name]+"_"+method_name+"("+combinations[i]+");";
@@ -1466,8 +1610,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     */
    
     //It will generate an array with the multiple options that each function will have for their switch statement(s), if they exist
-    var all_cases = [];
-    var cases;
+    all_cases = [];
     for(var i = 0; i<ret.control.length; i++){
       cases = [];
       for (var j=0;j<ret.control_num[i];j++){
@@ -1481,7 +1624,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     var fun_call;
     //Generates the combinations that will be the arguments when calling the function's test function
     if(all_cases.length>0){
-      var combinations = createCombinations(all_cases);
+      combinations = createCombinations(all_cases);
       //For each combination it will generate a call to the function test function
       for(var i = 0;i<combinations.length;i++){
         fun_call_str = "test"+number_test[fun_name]+"_"+fun_name+"("+combinations[i]+");";
