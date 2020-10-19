@@ -3,6 +3,7 @@ var escodegen = require('escodegen');
 var fs = require('fs');
 import finder = require("./finder");
 import ts = require("typescript");
+import { isString } from "util";
 
 
 //Class used to store the Cosette functions
@@ -141,10 +142,15 @@ function isUnionType(union_type:ts.Type){
 }
 
 //::::::::Checks if the given type is an object literal type::::::::
-function isObjectLiteralType(literal_type:ts.Type){
-  return literal_type.symbol && literal_type.symbol.declarations && literal_type.symbol.members; 
+function isObjectLiteralType(object_literal_type:ts.Type){
+  return object_literal_type.symbol && object_literal_type.symbol.declarations && object_literal_type.symbol.members; 
 }
 
+//::::::::Checks if the given type is an object literal type::::::::
+function isLiteralType(literal_type:ts.Type, program_info:finder.ProgramInfo){
+  var literal_type_node:ts.TypeLiteralNode = <ts.TypeLiteralNode> program_info.Checker.typeToTypeNode(literal_type);
+  return typeof literal_type_node["literal"] === "object";
+}
 
 //::::::::Function used to create the name of some type of variable with the respective number::::::::
 function makeFreshVariable (prefix:string) {
@@ -540,6 +546,10 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
 
       else if(isObjectLiteralType(arg_type)){
         return createObjectLiteralType(arg_type,program_info);
+      }
+
+      else if(isLiteralType(arg_type, program_info)){
+        return createLiteralType(arg_type, program_info);
       }
 
       //If the type reaches this case it is a type unsupported by the testGenerator
@@ -974,6 +984,31 @@ function createObjectLiteralType(object_literal_type:ts.Type,program_info:finder
   var ret_var = freshObjectVar();
   var object_declaration = createLiteralObjectDeclaration(ret_var, properties);
   stmts.push(object_declaration);
+
+  return {
+    stmts: stmts,
+    var:ret_var,
+    control: control_vars,
+    control_num: control_nums
+  }
+}
+
+//::::::::This function generates a symbolic assignment for each property of the object literal::::::::
+function createLiteralType(literal_type:ts.Type,program_info:finder.ProgramInfo){
+  var stmts = [];
+  var control_vars = [];
+  var control_nums = [];
+
+  var ret_var = freshXVar();
+  if(isString(literal_type["value"])) {
+    var var_string_assignment = `var ${ret_var} = "${literal_type["value"]}"`;
+    stmts.push(str2ast(var_string_assignment));
+  }
+
+  else {
+    var var_number_assignment = `var ${ret_var} = ${literal_type["value"]}`;
+    stmts.push(str2ast(var_number_assignment));
+  }
 
   return {
     stmts: stmts,
