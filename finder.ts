@@ -30,6 +30,7 @@ export class ProgramInfo {
     FunctionsInfo: HashTable<ComposedInfo> = {};
     InterfacesInfo: HashTable<ts.Type> = {};
     cycles_hash : HashTable<string[][]> = {};
+    max_constructors_recursive_objects:number = 0;
 
     hasClass(class_name:string):boolean {
         if(this.ClassesInfo[class_name]===undefined)

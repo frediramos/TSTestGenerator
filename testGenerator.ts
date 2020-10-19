@@ -178,10 +178,14 @@ var freshControlArrVar = makeFreshVariable("control_arr");
 var freshControlObjVar = makeFreshVariable("control_obj");
 //::::::::Function used to create the name of a fuel variable with the respective number ::::::::
 var freshFuelVar = makeFreshVariable("fuel");
+//::::::::Function used to create the name of a fuel array with the respective number ::::::::
+var freshFuelArrVar = makeFreshVariable("fuel_arr");
 //::::::::Function used to create the name of an union variable with the respective number ::::::::
 var freshUnionVar = makeFreshVariable("union");
 //::::::::Function used to create the name of a control variable -> used to select which assigment will be made to the union::::::::
 var freshControlUnionVar = makeFreshVariable("control_union");
+//::::::::Function used to create the name of an index with the respective number ::::::::
+var freshIndexVar = makeFreshVariable("i");
 
 
 //::::::::Function used to generate the combinations for the control vars::::::::
@@ -280,14 +284,29 @@ function getCreateMethodName(class_name:string):string{
 
 
 //::::::::This function generates the call of a constructor recursively with symbolic parameters::::::::
-function createObjectRecursiveCall(class_name:string,fuel_var:string){
-  var recurs_obj_var = freshObjectVar()
-  var call = `var ${recurs_obj_var} = ${getCreateMethodName(class_name)}(${fuel_var});`;
+function createObjectRecursiveCall(class_name:string, fuel_var?:string){
+  var recurs_obj_var = freshObjectVar();
+  var index = freshIndexVar();
+  
+  var fuel_var_str
+  if(!fuel_var){
+    var fuel_var = freshFuelArrVar();
+    fuel_var_str = `${fuel_var}[${index}]`;
+  }
+
+  else {
+    fuel_var_str = fuel_var;
+  }
+
+  var call = `var ${recurs_obj_var} = ${getCreateMethodName(class_name)}(${fuel_var_str});`;
   return {
     stmts: [ str2ast(call) ],
     var: recurs_obj_var,
     control: [],
-    control_num: []
+    control_num: [],
+    needs_for: true,
+    fuel_var: fuel_var,
+    index_var: index
   }
 }
 
@@ -363,6 +382,64 @@ function generateReturnVar(variable:string){
   }
 }
 
+
+//::::::::This function generates a for statement::::::::
+function generateForStatement(arr_iterated:string, index:string, stmts) {
+  return {
+    "type": "ForStatement",
+    "init": {
+      "type": "VariableDeclaration",
+      "declarations": [
+        {
+          "type": "VariableDeclarator",
+          "id": {
+            "type": "Identifier",
+            "name": index
+          },
+          "init": {
+            "type": "Literal",
+            "value": 0,
+            "raw": "0"
+          }
+        }
+      ],
+      "kind": "var"
+    },
+    "test": {
+      "type": "BinaryExpression",
+      "operator": "<",
+      "left": {
+        "type": "Identifier",
+        "name": index
+      },
+      "right": {
+        "type": "MemberExpression",
+        "computed": false,
+        "object": {
+          "type": "Identifier",
+          "name": arr_iterated
+        },
+        "property": {
+          "type": "Identifier",
+          "name": "length"
+        }
+      }
+    },
+    "update": {
+      "type": "UpdateExpression",
+      "operator": "++",
+      "argument": {
+        "type": "Identifier",
+        "name": index
+      },
+      "prefix": false
+    },
+    "body": {
+      "type": "BlockStatement",
+      "body": stmts
+    }
+  }
+}
 
 //::::::::This function generates the call of a constructor that needs recursive behaviour with symbolic parameters::::::::
 function createObjectRecursiveSymbParams(class_name:string, program_info:finder.ProgramInfo){
@@ -507,7 +584,7 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
 
         //If the construction of this object leads to a cycle it will be constructed recursively
         if(program_info.cycles_hash[type_str]){
-          return createObjectRecursiveCall(type_str,fuel_var);
+          return createObjectRecursiveCall(type_str, fuel_var);
         } 
         //Otherwise it will be constructed by generating the arguments and a call to its constructor(s)
         else {
@@ -613,10 +690,7 @@ function createFunctionDeclaration(method_name:string,stmts,params_str:string[])
 
   //Fills the params array with the parameter format that will be used to create the function declaration
   for(var i=0;i<params_str.length;i++){
-    params.push({
-      type:"Identifier",
-      name: params_str[i]
-    })
+    params.push(createIdentifier(params_str[i]));
   }
 
   return{
@@ -757,19 +831,6 @@ function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:fi
   calls.push(ret_val.stmts[0]);
   calls.push(generateReturnVar(ret_val.var));
   var func_expr = createFunctionExpression(calls,ret_args.vars);
-  /*var block_stmt = generateBlock(calls);
-  var fun_name = freshMockFuncVar();
-
-  //Creation of the mock function as a string 
-  var fun_str= `function ${fun_name} (${ret_args.vars_str}) {
-  ${ast2str(block_stmt)}
-  return ${ret_val.var};
-  }`;*/
-  
-  /*return {
-    stmts: [func_expr],
-    var: fun_name
-  }*/
   return func_expr;
 }
 
@@ -1051,23 +1112,39 @@ function createInterfaceMockConstructor(interface_name:string, program_info:find
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
   var symb_vars = [];
-  var stmts = []; 
-  var objs = [];
+  var stmts = [];
   var control_vars = [];
   var control_nums = [];
+  var needs_for;
+  var for_stmts = [];
 
-  stmts.push(ENTER_FUNC);
+  for_stmts.push(ENTER_FUNC);
 
   //Iterates over all the object constructors
   for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    for_stmts = [];
     symb_vars = [];
 
     //Iterates over all the argument types of that constructor
     for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
+      
+      //This flag will be activated if any of the arguments of the constructor needs recursive construction
+      needs_for = false
+      if(program_info.cycles_hash[class_name]) {
+        needs_for = true;
+      }
+
       //Generates a variable of the argument type
       var ret = createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
-      stmts=stmts.concat(ret.stmts); 
+      for_stmts=for_stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 
+
+      //Checks if any argument needs recursive construction
+      if(ret["needs_for"]) {
+        needs_for = true;
+        var fuel_arr = ret["fuel_var"];       //Fuel array used for the recursive construction
+        var index = ret["index_var"];             //Index to access the positions of the fuel array
+      }
 
       //Checks if any argument has more than one possible value
       if(ret.control !== undefined){
@@ -1081,8 +1158,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
     //If the object is an interface it adds a prefix 
     if(program_info.hasInterface(class_name))
       obj = "interface_" + obj;
-      
-    objs[i] = obj;
+
     //Creates a string with the arguments in parameters format, for example "x_1,x_2"
     var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
       if (cur_str === "") return prox; 
@@ -1090,10 +1166,58 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
     },"");  
 
     //Generates the assignment of the object variable to a new object of the given type
-    var constructor_ret_str =`var ${obj} = new ${class_name}(${constructor_args_str})`;
+    var constructor_ret_str = `var ${obj} = new ${class_name}(${constructor_args_str})`;
     var constructor_ret_stmt = str2ast(constructor_ret_str); 
-    stmts.push(constructor_ret_stmt);
-    stmts.push(ENTER_FUNC);
+    for_stmts.push(constructor_ret_stmt);
+
+    if(needs_for) {
+      var all_cases = [];
+      var all_combinations = [];
+      var fuel_vars = [];
+      var cases;
+      var combinations;
+  
+      for(var i = 0; i<FUEL_VAR_DEPTH; i++) {
+        cases = [];
+        for (var j=0;j<program_info.max_constructors_recursive_objects;j++) {
+          cases.push(j+1);
+        }
+  
+        all_cases.push(cases);
+        
+        combinations = createCombinations(all_cases);
+        all_combinations = all_combinations.concat(combinations);
+      }
+      
+      var selected_combination;
+      var fuel_var;
+      for(var i = 0; i<20; i++){
+        stmts.push(ENTER_FUNC);
+        selected_combination = Math.floor(Math.random() * (all_combinations.length + 1));
+        fuel_var = freshFuelVar();
+        stmts.push(str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
+        fuel_vars.push(fuel_var);
+      }
+      
+      //Creates a string with the arguments in parameters format, for example "x_1, x_2"
+      var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
+        if (cur_str === "") return prox; 
+        else return cur_str + ", " + prox; 
+      },"");  
+
+      stmts.push(ENTER_FUNC);
+      stmts.push(str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
+
+      stmts.push(ENTER_FUNC);
+      stmts.push(generateForStatement(fuel_arr, index, for_stmts));
+      stmts.push(ENTER_FUNC);
+    }
+
+    else {
+      for(var i = 0; i<for_stmts.length; i++) {
+        stmts.push(for_stmts[i]);
+      }
+    }
   }
 
   return {
@@ -1392,7 +1516,6 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var all_cases = [];
   var cases;
   var combinations;
-  var max_constructors_recursive_objects:number = 0;
   
 
   //Create functions generated for when there is cyclic construction in the objects 
@@ -1404,8 +1527,8 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     constant_code_str += ast2str(recursive_create_function)+"\n\n";
 
     //Saves the number of constructors of the object with cyclic that has more constructors for later use in the fuel var array
-    if(max_constructors_recursive_objects < program_info.ConstructorsInfo[class_name].length)
-      max_constructors_recursive_objects = program_info.ConstructorsInfo[class_name].length;
+    if(program_info.max_constructors_recursive_objects < program_info.ConstructorsInfo[class_name].length)
+      program_info.max_constructors_recursive_objects = program_info.ConstructorsInfo[class_name].length;
   });
 
   tests.push(ENTER_FUNC);
@@ -1426,28 +1549,6 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       });
     }
   });
-
-  //Creation of all the fuel array possibilities
-  if(program_info.cycles_hash){
-    all_cases = [];
-    var fuel_var = freshFuelVar();
-    constant_code_str += `var ${fuel_var} = [];\n`;
-    
-    for(var i = 0; i<FUEL_VAR_DEPTH; i++){
-      cases = [];
-      for (var j=0;j<max_constructors_recursive_objects;j++){
-        cases.push(j+1);
-      }
-
-      all_cases.push(cases);
-      
-      combinations = createCombinations(all_cases);
-      for(var j = 0; j<combinations.length; j++){
-        fuel_var = freshFuelVar();
-        constant_code_str += `var ${fuel_var} = [${combinations[j]}];\n`;
-      }
-    }
-  }
 
   //Iterates over all the object that have at least one constructor
   Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
