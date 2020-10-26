@@ -13,14 +13,14 @@ if (err) return;
 
 //Deleting the directory for the function's tests if it exists
 var tests_dir = "Test_"+process.argv.slice(2)[0].split(".")[0];
-var command_tests_dir = "rm -rf "+tests_dir;
+var command_tests_dir = "rm -rf ../"+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;
 });
 
 
 //Making the directory for the function's tests
-var command_tests_dir = "mkdir -p "+tests_dir;
+var command_tests_dir = "mkdir -p ../"+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;
 });

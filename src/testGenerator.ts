@@ -1703,7 +1703,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     }
 
     //It will write the constructor's test in a file inside the TS file test directory
-    fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+stringManipulation (curr_test));
+    fs.writeFileSync("../"+output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+stringManipulation (curr_test));
 
     fun_names[num_fun] = constructor_call_str;
     num_fun++;
@@ -1769,7 +1769,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
       }
 
       //It will write the method's test in a file inside the TS file test directory
-      fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
+      fs.writeFileSync("../"+output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
       fun_names[num_fun] = method_call_str;
       num_fun++;
@@ -1875,7 +1875,7 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     }
     
     //It will write the function's test in a file inside the TS file test directory
-    fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
+    fs.writeFileSync("../"+output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+stringManipulation (curr_test));
 
     fun_names[num_fun]=fun_call_str;
     num_fun++;
