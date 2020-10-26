@@ -1287,7 +1287,7 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
       var fuel_var;
       for(var i = 0; i<20; i++){
         stmts.push(ENTER_FUNC);
-        selected_combination = Math.floor(Math.random() * (all_combinations.length + 1));
+        selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
         fuel_var = freshFuelVar();
         stmts.push(str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
         fuel_vars.push(fuel_var);
