@@ -441,6 +441,45 @@ function generateForStatement(arr_iterated:string, index:string, stmts) {
   }
 }
 
+/*
+
+class A {
+   ... 
+   constructor (args1); 
+   constructor (args2); 
+   ...
+   constructor (argsn) {
+     body
+   }
+   ...
+}
+
+stmts_1, args_1', controls_1 = createArgSymbols(args1) 
+...
+stmts_n, args_n', controls_n = createArgSymbols(argsn)
+
+Recursive(A)
+
+======================> 
+
+function createA (fuel, controls1, ..., controlsn) {
+   if (fuel.length === 0) return null; 
+   var control = fuel.pop(); 
+   switch (control) {
+     case 1:
+          stmts1 
+          return new A(args1')
+     case 2:
+          stmts2 
+          return new A(args2')
+     ...
+     default: 
+          stmtsn
+          return new A(argsn')
+   } 
+}
+
+*/
 //::::::::This function generates the call of a constructor that needs recursive behaviour with symbolic parameters::::::::
 function createObjectRecursiveSymbParams(class_name:string, program_info:finder.ProgramInfo){
   
@@ -492,6 +531,42 @@ function createObjectRecursiveSymbParams(class_name:string, program_info:finder.
 
 
 //::::::::This function generates the call of a constructor with symbolic parameters::::::::
+/**
+class A {
+   ... 
+   constructor (args1); 
+   constructor (args2); 
+   ...
+   constructor (argsn) {
+     body
+   }
+   ...
+}
+
+stmts_1, args_1', controls_1 = createArgSymbols(args1) 
+...
+stmts_n, args_n', controls_n = createArgSymbols(argsn)
+
+======================> 
+
+function createA (controlA, controls1, ..., controlsn) {
+   switch (controlA) {
+     case 1:
+          stmts1 
+          return new A(args1')
+     case 2:
+          stmts2 
+          return new A(args2')
+     ...
+     default: 
+          stmtsn
+          return new A(argsn')
+   } 
+}
+
+*/
+
+
 function createObjectSymbParams(class_name:string, program_info:finder.ProgramInfo){
   var symb_vars = [];
   var stmts = []; 
@@ -551,6 +626,8 @@ function createObjectSymbParams(class_name:string, program_info:finder.ProgramIn
     control_num: control_nums
   }
 }
+
+// GenerateSymbolicTypes
 
 
 //::::::::Function used to make a symbol assignment to a variable::::::::
@@ -638,6 +715,18 @@ function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,
 
 
 //::::::::Function used to create the symbol of the arguments::::::::
+/**
+ * 
+ * 
+ * createArgSymbols(t1, ..., tn, fuel) ::
+ * 
+ * stmts1, #x1, controls1 = CSA(t1)
+ * ...
+ * stmtsn, #xn, controls1 = CSA(tn)
+ * ---------------------------------------------------
+ * (stmts1; stmts2; ...; stmtsn, [ #x1, ..., #xn ], controls1 @ ... @ controlsn )
+ */
+
 function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo,fuel_var?:string){
   var symb_vars = [];
   var stmts = []; 
@@ -795,6 +884,7 @@ function createPrototypeAssignment(interface_name:string, method_name:string, in
 }
 
 
+
 //::::::::This function generates the call to a function::::::::
 function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.ProgramInfo){
   var stmts = [];
@@ -808,6 +898,10 @@ function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.Pr
   return stmts;
 }
 
+
+/**
+ * 
+ */
 
 //::::::::This function generates a mock function used as other function argument::::::::
 function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:finder.ProgramInfo){
