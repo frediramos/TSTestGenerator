@@ -1,4 +1,4 @@
-import finder = require("./finder");
+import {IProgramInfo} from "./IProgramInfo"
 import * as constants from "./constants";
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
@@ -77,14 +77,15 @@ export function createObjectRecursiveCall(class_name:string, fuel_var?:string){
   
   */
 //::::::::This function generates the call of a constructor that needs recursive behaviour with symbolic parameters::::::::
-export function createObjectRecursiveSymbParams(class_name:string, program_info:finder.ProgramInfo){
+export function createObjectRecursiveSymbParams<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
     
     var symb_vars = [];
     var stmts = []; 
     var objs = [];
     var control_vars = [];
     var control_nums = [];
-  
+    var class_constructors = program_info.getClassConstructorsInfo(class_name);
+    
     //Creates the fuel var and the if statement at the beginning of the create function for objects with cyclic construction
     var fuel_var = freshVars.freshFuelVar();
     var if_has_fuel_ast = TsASTFunctions.generateIfFuelStatement(fuel_var);
@@ -96,11 +97,11 @@ export function createObjectRecursiveSymbParams(class_name:string, program_info:
     stmts.push(utils.str2ast(fuel_pop_str));
       
     //Generation of all the construction cases, one for each constructor that the object has
-    for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    for(var i=0; i<class_constructors.length; i++){
       symb_vars=[];
   
       //Generation of the constructor arguments
-      var ret = generateSymbolicTypes.createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info,fuel_var);
+      var ret = generateSymbolicTypes.createArgSymbols(class_constructors[i].arg_types,program_info,fuel_var);
       symb_vars = symb_vars.concat(ret.vars);
       //Checks if any argument has more than one possible value
       if(ret.control!==undefined){
@@ -119,7 +120,7 @@ export function createObjectRecursiveSymbParams(class_name:string, program_info:
   
     stmts.push(utils.str2ast(constants.ENTER_STR));
   
-    control_nums.push(program_info.ConstructorsInfo[class_name].length);
+    control_nums.push(class_constructors.length);
     control_vars.unshift(fuel_var);
   
     return TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars);
@@ -163,12 +164,13 @@ export function createObjectRecursiveSymbParams(class_name:string, program_info:
 */
   
   
-export function createObjectSymbParams(class_name:string, program_info:finder.ProgramInfo){
+export function createObjectSymbParams<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
     var symb_vars = [];
     var stmts = []; 
     var objs = [];
     var control_vars = [];
     var control_nums = [];
+    var class_constructors = program_info.getClassConstructorsInfo(class_name);
   
     //Creates the object var
     var obj = freshVars.freshObjectVar();
@@ -182,11 +184,11 @@ export function createObjectSymbParams(class_name:string, program_info:finder.Pr
     stmts.push(utils.str2ast(obj_str));
   
     //Iterates over all the object constructors 
-    for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+    for(var i=0; i<class_constructors.length; i++){
       symb_vars=[];
   
       //Creates the arguments for the object constructor
-      var ret = generateSymbolicTypes.createArgSymbols(program_info.ConstructorsInfo[class_name][i].arg_types,program_info);
+      var ret = generateSymbolicTypes.createArgSymbols(class_constructors[i].arg_types,program_info);
       symb_vars = symb_vars.concat(ret.vars);
       //Checks if any argument has more than one possible value
       if(ret.control!==undefined){
@@ -200,10 +202,12 @@ export function createObjectSymbParams(class_name:string, program_info:finder.Pr
     }
   
     //Checks if the class has more than one constructor and if it has it will create a switch case for each of them
-    if(program_info.ConstructorsInfo[class_name].length>1){
+    if(class_constructors.length>1){
       var control_var = freshVars.freshControlObjVar(); 
       var switch_stmt = TsASTFunctions.createSwitchStmt(control_var, objs);
       stmts.push(switch_stmt); 
+      control_vars.push(control_var);
+      control_nums.push(class_constructors.length);
     }
     //If it has only one constructor, it will only use the object var assignment already made
     else{
@@ -211,9 +215,6 @@ export function createObjectSymbParams(class_name:string, program_info:finder.Pr
     }
   
     stmts.push(utils.str2ast(constants.ENTER_STR));
-  
-    control_vars.push(control_var);
-    control_nums.push(program_info.ConstructorsInfo[class_name].length);
   
     return {
       stmts: stmts,

@@ -1,19 +1,12 @@
-import ts = require("typescript");
-import finder = require("./finder");
+import {IProgramInfo} from "./IProgramInfo"
 import * as constants from "./constants";
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
 import * as TsASTFunctions from "./TsASTFunctions";
 import * as generateSymbolicTypes from "./generateSymbolicTypes";
 
-
-//::::::::Checks if the given type is an array type::::::::
-export function isArrayType(arr_type:ts.Type){
-  return arr_type.symbol && arr_type.symbol.name==="Array";
-}
-
 //::::::::This function generates an array of its type::::::::
-export function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramInfo){
+export function createArrayOfType<ts_type>(arr_type:ts_type,program_info:IProgramInfo<ts_type>){
     var stmts = [];
     var symb_vars = [];
     var arrays = [];
@@ -25,7 +18,7 @@ export function createArrayOfType(arr_type:ts.Type,program_info:finder.ProgramIn
     stmts.push(utils.str2ast(arr_str));
   
     //Getting the type of the array 
-    var arg_type = arr_type.getNumberIndexType();
+    var arg_type = program_info.getTypeOfTheArray(arr_type);
   
     //Generation of the three possible arrays 
     for(var i =0;i<constants.BRANCHING_LIMIT;i++){

@@ -1,5 +1,4 @@
-import ts = require("typescript");
-import finder = require("./finder");
+import {IProgramInfo} from "./IProgramInfo"
 import * as utils from "./utils";
 import { isString } from "util";
 import * as cosetteFunctions from "./cosetteFunctions";
@@ -11,17 +10,6 @@ import * as generateSymbolicArray from "./generateSymbolicArray";
 import * as generateSymbolicUnion from "./generateSymbolicUnion";
 
 var cosFunc = new cosetteFunctions.CosetteFunctions(); 
-
-//::::::::Checks if the given type is an object literal type::::::::
-export function isObjectLiteralType(object_literal_type:ts.Type){
-    return object_literal_type.symbol && object_literal_type.symbol.declarations && object_literal_type.symbol.members; 
-}
-  
-//::::::::Checks if the given type is an object literal type::::::::
-export function isLiteralType(literal_type:ts.Type, program_info:finder.ProgramInfo){
-    var literal_type_node:ts.TypeLiteralNode = <ts.TypeLiteralNode> program_info.Checker.typeToTypeNode(literal_type);
-    return typeof literal_type_node["literal"] === "object";
-}
 
 //::::::::Function used to assign a string symbol to a variable::::::::
 function createStringSymbAssignment () { 
@@ -96,10 +84,10 @@ function createVoidAssignment () {
 // GenerateSymbolicTypes
 
 //::::::::Function used to make a symbol assignment to a variable::::::::
-export function createSymbAssignment (arg_type:ts.Type,program_info:finder.ProgramInfo,fuel_var?:string) { 
+export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IProgramInfo<ts_type>,fuel_var?:string) { 
 
     //Turns the type into a string
-    var type_str = program_info.Checker.typeToString(arg_type);
+    var type_str = program_info.getStringFromType(arg_type);
   
     //Based on the type it will decide what the program will generate
     switch (type_str) {
@@ -125,7 +113,7 @@ export function createSymbAssignment (arg_type:ts.Type,program_info:finder.Progr
         if (program_info.hasClass(type_str)) {
   
           //If the construction of this object leads to a cycle it will be constructed recursively
-          if(program_info.cycles_hash[type_str]){
+          if(program_info.hasCycle(type_str)){
             return generateSymbolicObjects.createObjectRecursiveCall(type_str, fuel_var);
           } 
           //Otherwise it will be constructed by generating the arguments and a call to its constructor(s)
@@ -140,10 +128,10 @@ export function createSymbAssignment (arg_type:ts.Type,program_info:finder.Progr
         } 
   
         //If the type is a function it will generate a mock function with the same return type to simulate a function being given as parameter 
-        else if(generateSymbolicFunctions.isFunctionType(arg_type,program_info)){
-          var ret_func_elements = generateSymbolicFunctions.getFunctionElements(arg_type,program_info);
+        else if(program_info.isFunctionType(arg_type)){
+          var ret_func_elements = program_info.getFunctionElements(arg_type);
           var fun_name = freshVars.freshMockFuncVar();
-          var func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
+          var func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].arg_types, ret_func_elements[0].ret_type, program_info);
           var func_decl = TsASTFunctions.func_expr2func_decl(fun_name, func_expr);
           return {
             stmts: [func_decl],
@@ -154,21 +142,21 @@ export function createSymbAssignment (arg_type:ts.Type,program_info:finder.Progr
         } 
         
         //If the type is an array it will generate 3 possible array assignments
-        else if(generateSymbolicArray.isArrayType(arg_type)){
+        else if(program_info.isArrayType(arg_type)){
           return generateSymbolicArray.createArrayOfType(arg_type,program_info);
         } 
   
         //If the type is an union it will generate one assignment for each of the union possible types
-        else if(generateSymbolicUnion.isUnionType(arg_type)){
+        else if(program_info.isUnionType(arg_type)){
           return generateSymbolicUnion.createUnionType(arg_type,program_info);
         } 
   
-        else if(isObjectLiteralType(arg_type)){
+        else if(program_info.isObjectLiteralType(arg_type)){
           return createObjectLiteralType(arg_type,program_info);
         }
   
-        else if(isLiteralType(arg_type, program_info)){
-          return createLiteralType(arg_type, program_info);
+        else if(program_info.isLiteralType(arg_type)){
+          return createLiteralType(arg_type);
         }
   
         //If the type reaches this case it is a type unsupported by the testGenerator
@@ -192,7 +180,7 @@ export function createSymbAssignment (arg_type:ts.Type,program_info:finder.Progr
  * (stmts1; stmts2; ...; stmtsn, [ #x1, ..., #xn ], controls1 @ ... @ controlsn )
  */
   
-export function createArgSymbols(arg_types:ts.Type[],program_info:finder.ProgramInfo,fuel_var?:string){
+export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProgramInfo<ts_type>,fuel_var?:string){
     var symb_vars = [];
     var stmts = []; 
     var control_vars = [];
@@ -229,25 +217,22 @@ export function createArgSymbols(arg_types:ts.Type[],program_info:finder.Program
 }
 
 //::::::::This function generates a symbolic assignment for each property of the object literal::::::::
-function createObjectLiteralType(object_literal_type:ts.Type,program_info:finder.ProgramInfo){
+function createObjectLiteralType<ts_type>(object_literal_type:ts_type,program_info:IProgramInfo<ts_type>){
     var stmts = [];
     var properties = [];
     var control_vars = [];
     var control_nums = [];
   
     //Stores the symbols of the object literal properties in a variable
-    var object_literal_symbols = object_literal_type.getProperties();
+    var object_literal_dictionary = program_info.getObjectLiteralPropertyTypes(object_literal_type);   
   
     //Generates the property type variable 
-    Object.keys(object_literal_symbols).forEach(function (property_number) {
-      
-      var property_symbol = object_literal_symbols[property_number];
-      var property_type = program_info.Checker.getTypeOfSymbolAtLocation(property_symbol, property_symbol.valueDeclaration!);
+    Object.keys(object_literal_dictionary).forEach(function (property_name) {
   
-      var ret = createSymbAssignment(property_type, program_info);
+      var ret = createSymbAssignment(object_literal_dictionary[property_name], program_info);
       stmts=stmts.concat(ret.stmts); 
   
-      var property_assigment = TsASTFunctions.createProperty(property_symbol.escapedName, ret.var);
+      var property_assigment = TsASTFunctions.createProperty(property_name, ret.var);
       properties.push(property_assigment);
   
       //Checks if any argument has more than one possible value
@@ -271,7 +256,7 @@ function createObjectLiteralType(object_literal_type:ts.Type,program_info:finder
 }
   
 //::::::::This function generates a symbolic assignment for each property of the object literal::::::::
-function createLiteralType(literal_type:ts.Type,program_info:finder.ProgramInfo){
+function createLiteralType<ts_type>(literal_type:ts_type){
     var stmts = [];
     var control_vars = [];
     var control_nums = [];

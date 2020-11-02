@@ -1,6 +1,5 @@
 import * as ts from "typescript";
-import { options } from "yargs";
-
+import {IProgramInfo} from "./IProgramInfo"
 
 //Class to store parameters type, return type and class type if it is a class method and not a function
 export class ComposedInfo {
@@ -21,7 +20,7 @@ class ClassVertex{
 
 
 //Class that will store all the information in the program
-export class ProgramInfo {
+export class ProgramInfo implements IProgramInfo<ts.Type> {
     Checker: ts.TypeChecker;
     ClassesInfo: HashTable<ts.Type> = {};
     MethodsInfo: HashTable<HashTable<ComposedInfo>> = {};
@@ -32,16 +31,151 @@ export class ProgramInfo {
     cycles_hash : HashTable<string[][]> = {};
     max_constructors_recursive_objects:number = 0;
 
-    hasClass(class_name:string):boolean {
-        if(this.ClassesInfo[class_name]===undefined)
+    getConstructorsInfo() : HashTable<ComposedInfo []> {
+        return this.ConstructorsInfo;
+    }
+
+    getClassConstructorsInfo(class_name:string): ComposedInfo[] {
+        return this.ConstructorsInfo[class_name];
+    }
+
+    getMethodsInfo(): HashTable<HashTable<ComposedInfo>> {
+        return this.MethodsInfo;
+    }
+    
+    getClassMethodsInfo(class_name:string): HashTable<ComposedInfo> {
+        return this.MethodsInfo[class_name];
+    }
+
+    getClassMethodInfo(class_name:string, method_name:string): ComposedInfo {
+        return this.MethodsInfo[class_name][method_name];
+    }
+
+    getFunctionsInfo(): HashTable<ComposedInfo> {
+        return this.FunctionsInfo;
+    }
+
+    getFunctionInfo(function_name: string): ComposedInfo {
+        return this.FunctionsInfo[function_name];
+    }
+
+    getInterfacesInfo(): HashTable<ts.Type> {
+        return this.InterfacesInfo;
+    }
+    
+    getInterfacePropertiesInfo(interface_name: string): HashTable<ts.Type> {
+        return this.PropertiesInfo[interface_name];
+    }
+
+    getCyclesHashTable(): HashTable<string[][]> {
+        return this.cycles_hash;
+    }
+
+    getMaxConstructorsRecursiveObjects(): number {
+        return this.max_constructors_recursive_objects;
+    }
+
+    setMaxConstructorsRecursiveObjects(new_max:number): void {
+        this.max_constructors_recursive_objects = new_max;
+    }
+    
+    //This function gets the parameters and return types of a function
+    getFunctionElements(fun_type:ts.Type):ComposedInfo[]{
+        var ret = [];
+        
+        //Checks signatures in the fun_type in order to find the parameters types and the function return value
+        for (const signature of fun_type.getCallSignatures()){
+
+            var params = [];
+            for(const parameter of signature.parameters){
+                var parameter_type = this.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!);
+                params.push(parameter_type);
+            }
+            var ret_type = signature.getReturnType();
+
+            ret.push({
+                params:params,
+                ret: ret_type
+            })
+        }
+    
+        return ret;
+    }
+    
+    //This function returns the type of the array
+    getTypeOfTheArray(arr_type:ts.Type): ts.Type {
+        return arr_type.getNumberIndexType();
+    }
+
+    hasCycle(class_name:string):boolean {
+        if (this.cycles_hash[class_name])
+            return true;
+        else
             return false;
-        return true;
+    }
+
+    hasClass(class_name:string):boolean {
+        if(this.ClassesInfo[class_name])
+            return true;
+        else
+            return false;
     }
 
     hasInterface(interface_name:string):boolean {
-        if(this.InterfacesInfo[interface_name]===undefined)
+        if(this.InterfacesInfo[interface_name])
+            return true;
+        else
             return false;
-        return true;
+    }
+
+    //::::::::Checks if the given type is a function type::::::::
+    isFunctionType(arg_type:ts.Type):boolean {
+        var arg_str =this.Checker.typeToString(arg_type);
+        return arg_str.includes("=>"); 
+    }
+
+    //::::::::Checks if the given type is an array type::::::::
+    isArrayType(arr_type:ts.Type):boolean {
+        return arr_type.symbol && arr_type.symbol.name === "Array";
+    }
+
+    //::::::::Checks if the given type is an union type::::::::
+    isUnionType(union_type:ts.Type):boolean {
+        return union_type.hasOwnProperty("types");
+    }
+  
+
+    //::::::::Checks if the given type is an object literal type::::::::
+    isObjectLiteralType(object_literal_type:ts.Type):boolean {
+        var ret =<boolean><unknown> (object_literal_type.symbol && object_literal_type.symbol.declarations && object_literal_type.symbol.members);
+        return ret; 
+    }
+    
+    //::::::::Checks if the given type is an object literal type::::::::
+    isLiteralType(literal_type:ts.Type):boolean {
+        var literal_type_node:ts.TypeLiteralNode = <ts.TypeLiteralNode> this.Checker.typeToTypeNode(literal_type);
+        return typeof literal_type_node["literal"] === "object";
+    }
+
+    getStringFromType(type:ts.Type):string {
+        return this.Checker.typeToString(type);
+    }
+
+    getObjectLiteralPropertyTypes(type:ts.Type):{[property_name: string] : ts.Type;} {
+        var propertiesTypeDictionary:{[property_name: string] : ts.Type;} = {};
+
+        //Stores the symbols of the object literal properties in a variable
+        var object_literal_symbols = type.getProperties();   
+    
+        //Generates the property type variable 
+        Object.keys(object_literal_symbols).forEach(function (property_number) {
+            
+            var property_symbol = object_literal_symbols[property_number];
+            var property_type = this.Checker.getTypeOfSymbolAtLocation(property_symbol, property_symbol.valueDeclaration!);
+            propertiesTypeDictionary[property_symbol.escapedName] = property_type;
+        });
+
+        return propertiesTypeDictionary;
     }
 }
 

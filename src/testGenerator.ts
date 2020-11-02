@@ -1,5 +1,6 @@
 var fs = require('fs');
-import finder = require("./finder");
+import * as finder from "./finder";
+import {IProgramInfo} from "./IProgramInfo"
 import * as constants from "./constants";
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
@@ -11,7 +12,7 @@ import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
 
 //::::::::This function generates the call of all the constructors of a class::::::::
-function generateConstructorTests(class_name:string,program_info:finder.ProgramInfo){
+function generateConstructorTests<ts_type>(class_name:string,program_info:IProgramInfo<ts_type>){
   var symb_vars = [];
   var stmts = [];
   var control_vars = [];
@@ -21,22 +22,23 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
 
   for_stmts.push(utils.str2ast(constants.ENTER_STR));
 
+  var class_constructors_info = program_info.getClassConstructorsInfo(class_name);
   //Iterates over all the object constructors
-  for(var i=0; i<program_info.ConstructorsInfo[class_name].length; i++){
+  for(var i=0; i<class_constructors_info.length; i++){
     for_stmts = [];
     symb_vars = [];
 
     //Iterates over all the argument types of that constructor
-    for (var j=0; j<program_info.ConstructorsInfo[class_name][i].arg_types.length; j++) { 
+    for (var j=0; j<class_constructors_info[i].arg_types.length; j++) { 
       
       //This flag will be activated if any of the arguments of the constructor needs recursive construction
       needs_for = false
-      if(program_info.cycles_hash[class_name]) {
+      if(program_info.hasCycle(class_name)) {
         needs_for = true;
       }
 
       //Generates a variable of the argument type
-      var ret = generateSymbolicTypes.createSymbAssignment(program_info.ConstructorsInfo[class_name][i].arg_types[j],program_info);
+      var ret = generateSymbolicTypes.createSymbAssignment(class_constructors_info[i].arg_types[j],program_info);
       for_stmts=for_stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 
 
@@ -77,10 +79,11 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
       var fuel_vars = [];
       var cases;
       var combinations;
+      var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
   
       for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
         cases = [];
-        for (var j=0;j<program_info.max_constructors_recursive_objects;j++) {
+        for (var j=0;j<max_constructors_recursive_objects;j++) {
           cases.push(j+1);
         }
   
@@ -130,11 +133,11 @@ function generateConstructorTests(class_name:string,program_info:finder.ProgramI
 
 
 //::::::::This function generates a method test function:::::::
-function generateMethodTest(class_name:string, method_name:string,method_number_test:number,program_info:finder.ProgramInfo){
+function generateMethodTest<ts_type>(class_name:string, method_name:string,method_number_test:number,program_info:IProgramInfo<ts_type>){
   var stmts = [];
   var control_vars = [];
   var control_nums = [];
-  var method_info = program_info.MethodsInfo[class_name][method_name];
+  var method_info = program_info.getClassMethodInfo(class_name, method_name);
 
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
@@ -179,11 +182,11 @@ function generateMethodTest(class_name:string, method_name:string,method_number_
 
 
 //::::::::This function generates a function test function::::::::
-function generateFunctionTest(fun_name:string,fun_number_test:number,program_info:finder.ProgramInfo){
+function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,program_info:IProgramInfo<ts_type>){
   var stmts = [];
   var control_vars = [];
   var control_nums = [];
-  var function_info=program_info.FunctionsInfo[fun_name];
+  var function_info=program_info.getFunctionInfo(fun_name);
 
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
@@ -219,7 +222,7 @@ function generateFunctionTest(fun_name:string,fun_number_test:number,program_inf
 
 
 //::::::::This fucntion is responsible for genarating the program tests::::::::
-export function generateTests(program_info : finder.ProgramInfo,output_dir:string, js_file:string):string{
+export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,output_dir:string, js_file:string):string{
   var fun_names = [];
   var num_fun = 0;
   var tests = [];
@@ -231,32 +234,35 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   var cases;
   var combinations;
   
-
+  var cycles_hashtable = program_info.getCyclesHashTable()
   //Create functions generated for when there is cyclic construction in the objects 
-  Object.keys(program_info.cycles_hash).forEach(function (class_name) {
+  Object.keys(cycles_hashtable).forEach(function (class_name) {
     //Recursive creation function generation
     var recursive_create_function = generateSymbolicObjects.createObjectRecursiveSymbParams(class_name,program_info);
     tests.push(recursive_create_function);
     recursive_create_functions[class_name] = utils.ast2str(recursive_create_function);
     constant_code_str += utils.ast2str(recursive_create_function)+"\n\n";
 
+    var class_constructors = program_info.getClassConstructorsInfo(class_name);
     //Saves the number of constructors of the object with cyclic that has more constructors for later use in the fuel var array
-    if(program_info.max_constructors_recursive_objects < program_info.ConstructorsInfo[class_name].length)
-      program_info.max_constructors_recursive_objects = program_info.ConstructorsInfo[class_name].length;
+    if(program_info.getMaxConstructorsRecursiveObjects() < class_constructors.length)
+      program_info.setMaxConstructorsRecursiveObjects(class_constructors.length);
   });
 
   tests.push(utils.str2ast(constants.ENTER_STR));
 
+  var interfaces_info = program_info.getInterfacesInfo()
   //Creation of Mock constructors and methods for interfaces
-  Object.keys(program_info.InterfacesInfo).forEach(function (interface_name) {
+  Object.keys(interfaces_info).forEach(function (interface_name) {
     //Creation of the mock constructor for the interface
     var interface_mock_constructor = generateSymbolicInterface.createInterfaceMockConstructor(interface_name,program_info);
     constant_code_str += utils.ast2str(interface_mock_constructor.stmts)+"\n\n";
 
+    var methods_info = program_info.getMethodsInfo()
     //Creation of the mock methods for the interface
-    if(program_info.MethodsInfo[interface_name]){
-      Object.keys(program_info.MethodsInfo[interface_name]).forEach(function (method_name) {
-        var interface_method_info = program_info.MethodsInfo[interface_name][method_name];
+    if(methods_info[interface_name]){
+      Object.keys(methods_info[interface_name]).forEach(function (method_name) {
+        var interface_method_info = methods_info[interface_name][method_name];
         var interface_mock_method = generateSymbolicFunctions.createMockFunction(interface_method_info.arg_types,interface_method_info.ret_type,program_info);
         var proto_assignment = TsASTFunctions.createPrototypeAssignment(interface_name, method_name, interface_mock_method);
         constant_code_str += utils.ast2str(proto_assignment)+"\n\n";
@@ -264,8 +270,9 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     }
   });
 
+  var constructors_info = program_info.getConstructorsInfo();
   //Iterates over all the object that have at least one constructor
-  Object.keys(program_info.ConstructorsInfo).forEach(function (class_name) { 
+  Object.keys(constructors_info).forEach(function (class_name) { 
 
     curr_test = constant_code_str+"\n";
 
@@ -329,10 +336,12 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
     num_fun++;
   });
 
+  var methods_info = program_info.getMethodsInfo();
   //Iterates over all the object that have at least one method
-  Object.keys(program_info.MethodsInfo).forEach(function (class_name) { 
+  Object.keys(methods_info).forEach(function (class_name) { 
+    var class_methods_info = program_info.getClassMethodsInfo(class_name) 
     //Iterates over all the method that an object has
-    Object.keys(program_info.MethodsInfo[class_name]).forEach(function (method_name){
+    Object.keys(class_methods_info).forEach(function (method_name){
 
       curr_test = constant_code_str+"\n";
       
@@ -397,8 +406,9 @@ export function generateTests(program_info : finder.ProgramInfo,output_dir:strin
   });
 
 
+  var functions_info = program_info.getFunctionsInfo();
   //Functions tests will be created
-  Object.keys(program_info.FunctionsInfo).forEach(function (fun_name) { 
+  Object.keys(functions_info).forEach(function (fun_name) { 
 
     curr_test = constant_code_str+"\n";
 

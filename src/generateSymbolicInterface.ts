@@ -1,18 +1,19 @@
-import finder = require("./finder");
+import {IProgramInfo} from "./IProgramInfo"
 import * as utils from "./utils";
 import * as TsASTFunctions from "./TsASTFunctions";
 import * as generateSymbolicTypes from "./generateSymbolicTypes";
 
 //::::::::This function generates the mock constructor for an interface::::::::
-export function createInterfaceMockConstructor(interface_name:string, program_info:finder.ProgramInfo){
+export function createInterfaceMockConstructor<ts_type>(interface_name:string, program_info:IProgramInfo<ts_type>){
     var stmts = [];
     var control_vars = [];
     var control_nums = [];
   
+    var interface_properties_info = program_info.getInterfacePropertiesInfo(interface_name);
     //Iterates over all the properties of an interface
-    Object.keys(program_info.PropertiesInfo[interface_name]).forEach(function (property_name) {
+    Object.keys(interface_properties_info).forEach(function (property_name) {
       //Generates the property type variable and assigns the object property to this variable
-      var ret = generateSymbolicTypes.createSymbAssignment(program_info.PropertiesInfo[interface_name][property_name],program_info);
+      var ret = generateSymbolicTypes.createSymbAssignment(interface_properties_info[property_name],program_info);
       stmts=stmts.concat(ret.stmts); 
       var property_assigment_str = `this.${property_name} = ${ret.var};`
       stmts.push(utils.str2ast(property_assigment_str));

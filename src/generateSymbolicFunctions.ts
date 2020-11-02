@@ -1,19 +1,10 @@
-import ts = require("typescript");
-import finder = require("./finder");
+import {IProgramInfo} from "./IProgramInfo"
 import * as utils from "./utils";
 import * as TsASTFunctions from "./TsASTFunctions";
 import * as generateSymbolicTypes from "./generateSymbolicTypes";
 
-
-//::::::::Checks if the given type is a function type::::::::
-export function isFunctionType(arg_type:ts.Type,program_info:finder.ProgramInfo){
-
-    var arg_str =program_info.Checker.typeToString(arg_type);
-    return arg_str.includes("=>"); 
-}
-
 //::::::::This function generates the call to a function::::::::
-function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.ProgramInfo){
+function createCall<ts_type>(fun_name:string, arg_types:ts_type[], program_info:IProgramInfo<ts_type>){
     var stmts = [];
   
     //The argument types will be generated
@@ -25,27 +16,8 @@ function createCall(fun_name:string, arg_types:ts.Type[], program_info:finder.Pr
     return stmts;
 }
 
-//::::::::This function gets the parameters and return types of a function::::::::
-export function getFunctionElements(fun_type:ts.Type,program_info:finder.ProgramInfo){
-  var params = [];
-
-  //Checks signatures in the fun_type in order to find the parameters types and the function return value
-  for (const signature of fun_type.getCallSignatures()){
-    for(const parameter of signature.parameters){
-      var parameter_type = program_info.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!);
-      params.push(parameter_type);
-    }
-    var ret_type = signature.getReturnType();
-  }
-
-  return {
-    params:params,
-    ret: ret_type
-  }
-}
-
 //::::::::This function generates a mock function used as other function argument::::::::
-export function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_info:finder.ProgramInfo){
+export function createMockFunction<ts_type>(arg_types:ts_type[],ret_type:ts_type,program_info:IProgramInfo<ts_type>){
     var calls = [];
     
     //Creates the variable assignment for the return type
@@ -56,10 +28,10 @@ export function createMockFunction(arg_types:ts.Type[],ret_type:ts.Type,program_
   
     for(var i=0;i<arg_types.length;i++){
       //Checks if one of the types is a function
-      if(isFunctionType(arg_types[i],program_info)){
+      if(program_info.isFunctionType(arg_types[i])){
         //Generates the call to the function that is a parameter of this mock function
-        var function_elements = getFunctionElements(arg_types[i],program_info);
-        calls=calls.concat(createCall(ret_args.vars[i], function_elements.params,program_info));
+        var function_elements = program_info.getFunctionElements(arg_types[i]);
+        calls=calls.concat(createCall(ret_args.vars[i], function_elements[0].arg_types,program_info));
       }
     }
   

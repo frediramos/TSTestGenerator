@@ -1,15 +1,9 @@
-import ts = require("typescript");
-import finder = require("./finder");
+import {IProgramInfo} from "./IProgramInfo"
 import * as constants from "./constants";
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
 import * as TsASTFunctions from "./TsASTFunctions";
 import * as generateSymbolicTypes from "./generateSymbolicTypes";
-
-//::::::::Checks if the given type is an union type::::::::
-export function isUnionType(union_type:ts.Type){
-  return union_type.hasOwnProperty("types");
-}
 
 /**
  * 
@@ -17,7 +11,7 @@ export function isUnionType(union_type:ts.Type){
 
 
 //::::::::This function generates a symbolic assignment for each type in the union::::::::
-export function createUnionType(union_type:ts.Type,program_info:finder.ProgramInfo){
+export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgramInfo<ts_type>){
   var stmts = [];
   var symb_vars = [];
   var unions = [];

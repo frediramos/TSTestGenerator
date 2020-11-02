@@ -1,4 +1,3 @@
-import * as ts from "typescript";
 import * as fs from "fs";
 import finder = require("./finder");
 import tg = require("./testGenerator");

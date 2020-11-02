@@ -1,9 +1,6 @@
-import ts = require("typescript");
-import finder = require("./finder");
+import {IProgramInfo} from "./IProgramInfo"
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
-import * as generateSymbolicUnion from "./generateSymbolicUnion";
-import * as generateSymbolicTypes from "./generateSymbolicTypes";
 
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
 function generateFinalStringAsrt(ret_var:string) { 
@@ -104,10 +101,10 @@ function generateFinalObjectLiteralAsrt(stmts,assert_vars: string[]) {
 }
 
 //::::::::This function generates an assertion to check the return type ::::::::
-export function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_info : finder.ProgramInfo) {
+export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, program_info : IProgramInfo<ts_type>) {
 
   //Turns the type into a string
-  var ret_type_str = program_info.Checker.typeToString(ret_type);
+  var ret_type_str = program_info.getStringFromType(ret_type);
   
   //Based on the type it will decide which assertion the program will generate
   switch(ret_type_str) {
@@ -140,7 +137,7 @@ export function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_inf
       } 
 
       //If the type is an union it will assert to one of the possible types
-      else if(generateSymbolicUnion.isUnionType(ret_type)){
+      else if(program_info.isUnionType(ret_type)){
         var assert_vars = [];
         var stmts = [];
 
@@ -154,18 +151,16 @@ export function generateFinalAsrt (ret_type:ts.Type, ret_var:string, program_inf
       } 
 
       //If the type is an object literal it will assert each property to the respective type
-      if (generateSymbolicTypes.isObjectLiteralType(ret_type)) {
+      if (program_info.isObjectLiteralType(ret_type)) {
         var assert_vars = [];
         var stmts = [];
-        var object_literal_symbols = ret_type.getProperties();
+
+        var object_literal_dictionary = program_info.getObjectLiteralPropertyTypes(ret_type);
 
         //Generates the assert of each property of the object literal
-        Object.keys(object_literal_symbols).forEach(function (property_number) {
-          
-          var property_symbol = object_literal_symbols[property_number];
-          var property_type = program_info.Checker.getTypeOfSymbolAtLocation(property_symbol, property_symbol.valueDeclaration!);
+        Object.keys(object_literal_dictionary).forEach(function (property_name) {
 
-          var type_asrt = generateFinalAsrt(property_type, ret_var+"."+object_literal_symbols[property_number].escapedName, program_info);
+          var type_asrt = generateFinalAsrt(object_literal_dictionary[property_name], ret_var+"."+property_name, program_info);
       
           assert_vars.push(type_asrt.var);
           stmts = stmts.concat(type_asrt.stmt);
