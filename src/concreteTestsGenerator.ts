@@ -1,8 +1,7 @@
-import * as ts from "typescript";
 import * as fs from "fs";
 
 var test_path = process.argv.slice(2)[0];
-var json_path = "../"+test_path.split("/")[1]+"/failing_models/"+test_path.split("/")[2].split(".")[0]+".json";
+var json_path = "./"+test_path.split("/")[0]+"/failing_models/"+test_path.split("/")[1].substring(0, test_path.split("/")[1].lastIndexOf("."))+".json";
 var json = require(json_path);
 var constant_code_str;
 
@@ -27,7 +26,7 @@ for(var i = 0; i<json.models.length;i++){
         }
     }\n\n`;
 
-    fs.writeFileSync("../"+test_path.split("/")[1]+"/concrete_tests/concrete_"+test_path.split("/")[1].split(".")[0]+(i+1)+".js",constant_code_str+test_code);
+    fs.writeFileSync(test_path.split("/")[0]+"/concrete_tests/concrete_"+test_path.split("/")[1].substring(0, test_path.split("/")[1].lastIndexOf("."))+(i+1)+".js",constant_code_str+test_code);
 }
 
 

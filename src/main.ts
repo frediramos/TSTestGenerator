@@ -11,15 +11,15 @@ if (err) return;
 
 
 //Deleting the directory for the function's tests if it exists
-var tests_dir = "Test_"+process.argv.slice(2)[0].split(".")[0];
-var command_tests_dir = "rm -rf ../"+tests_dir;
+var tests_dir = "Test_"+process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0];
+var command_tests_dir = "rm -rf "+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;
 });
 
 
 //Making the directory for the function's tests
-var command_tests_dir = "mkdir -p ../"+tests_dir;
+var command_tests_dir = "mkdir -p "+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;
 });
@@ -40,16 +40,22 @@ try {
 }
 
 //Getting the code from the compiled file that is being tested
+var js_file = process.argv.slice(2)[0].substring(0, process.argv.slice(2)[0].lastIndexOf(".")) + ".js";
 var file_code_comp:string;
 try {
-    file_code_comp = fs.readFileSync(process.argv.slice(2)[0].split(".")[0]+".js", 'utf8');
+    file_code_comp = fs.readFileSync(js_file, 'utf8');
     file_code_comp = "/* \n=====Compiled Typescript file that is being tested=====\n*/\n\n"+file_code_comp;
 } catch(e) {
     console.log('Error:', e.stack);
 }
 
+var remove_js_file = "rm "+js_file;
+execSync(remove_js_file, (err, stdout, stderr) => {
+if (err) return;
+});
+
 //Tests generation
 var test = tg.generateTests(prog_info, tests_dir, file_code_comp);
 
 //Writing the Typescript file, the compiled file and the tests in an output file
-fs.writeFileSync(process.argv.slice(2)[0].split(".")[0]+"-global-test.js",file_code+file_code_comp+"\n\n"+test);
+fs.writeFileSync(process.argv.slice(2)[0].substring(0, process.argv.slice(2)[0].lastIndexOf("."))+"-global-test.js",file_code+file_code_comp+"\n\n"+test);

@@ -234,7 +234,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   var cases;
   var combinations;
   
-  var cycles_hashtable = program_info.getCyclesHashTable()
+  var cycles_hashtable = program_info.getCyclesHashTable();
   //Create functions generated for when there is cyclic construction in the objects 
   Object.keys(cycles_hashtable).forEach(function (class_name) {
     //Recursive creation function generation
@@ -330,7 +330,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     }
 
     //It will write the constructor's test in a file inside the TS file test directory
-    fs.writeFileSync("../"+output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+utils.stringManipulation(curr_test));
+    fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+utils.stringManipulation(curr_test));
 
     fun_names[num_fun] = constructor_call_str;
     num_fun++;
@@ -398,7 +398,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       }
 
       //It will write the method's test in a file inside the TS file test directory
-      fs.writeFileSync("../"+output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+utils.stringManipulation(curr_test));
+      fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+utils.stringManipulation(curr_test));
 
       fun_names[num_fun] = method_call_str;
       num_fun++;
@@ -465,7 +465,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     }
     
     //It will write the function's test in a file inside the TS file test directory
-    fs.writeFileSync("../"+output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+utils.stringManipulation(curr_test));
+    fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+utils.stringManipulation(curr_test));
 
     fun_names[num_fun]=fun_call_str;
     num_fun++;
