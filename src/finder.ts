@@ -80,12 +80,16 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     }
     
     //This function gets the parameters and return types of a function
-    getFunctionElements(fun_type:ts.Type):ComposedInfo[]{
+    getFunctionElements(fun_type:ts.Type):{params:ts.Type[], ret:ts.Type}[]{
         var ret = [];
+
+        console.log("getFunctionElements"); 
+        console.log(fun_type);
         
         //Checks signatures in the fun_type in order to find the parameters types and the function return value
         for (const signature of fun_type.getCallSignatures()){
 
+            console.log(signature);
             var params = [];
             for(const parameter of signature.parameters){
                 var parameter_type = this.Checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration!);
@@ -93,6 +97,7 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
             }
             var ret_type = signature.getReturnType();
 
+            console.log(ret_type);
             ret.push({
                 params:params,
                 ret: ret_type

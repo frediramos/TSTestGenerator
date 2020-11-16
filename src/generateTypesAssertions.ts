@@ -100,6 +100,19 @@ function generateFinalObjectLiteralAsrt(stmts,assert_vars: string[]) {
   }
 }
 
+
+//::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
+function generateFinalAnyAsrt(ret_var:string) { 
+  var x = freshVars.freshAssertVar();
+  var ret_str = `var ${x} = true;`; 
+  return {
+    stmt:[utils.str2ast(ret_str)],
+    var:x
+  } 
+}
+
+
+
 //::::::::This function generates an assertion to check the return type ::::::::
 export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, program_info : IProgramInfo<ts_type>) {
 
@@ -123,6 +136,8 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
     //If the type is null it will generate the assertion to undefined
     case "void" : 
     case "undefined" : return generateFinalVoidAsrt(ret_var); 
+
+    case "any": return generateFinalAnyAsrt(ret_var); 
     
     //if the type is not a primitive type
     default: 
@@ -171,7 +186,7 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
       
       //If the type reaches this case it is a type that the assertion is unsupported by the testGenerator
       else {
-        throw new Error ("generateFinalAsrt: Unsupported type")
+        throw new Error ("generateFinalAsrt: Unsupported type: "+ret_type_str)
       }
   }
 }

@@ -17,7 +17,7 @@ export interface IProgramInfo <ts_type>{
     getMaxConstructorsRecursiveObjects(): number;
     setMaxConstructorsRecursiveObjects(new_max:number): void;
 
-    getFunctionElements(fun_type:ts_type):{arg_types:ts_type[], ret_type:ts_type}[];
+    getFunctionElements(fun_type:ts_type):{params:ts_type[], ret:ts_type}[];
     getTypeOfTheArray(arr_type:ts_type): ts_type;
 
     hasCycle(class_name:string):boolean;

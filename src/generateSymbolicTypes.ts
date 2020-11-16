@@ -129,9 +129,10 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
   
         //If the type is a function it will generate a mock function with the same return type to simulate a function being given as parameter 
         else if(program_info.isFunctionType(arg_type)){
+         
           var ret_func_elements = program_info.getFunctionElements(arg_type);
           var fun_name = freshVars.freshMockFuncVar();
-          var func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].arg_types, ret_func_elements[0].ret_type, program_info);
+          var func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].params, ret_func_elements[0].ret, program_info);
           var func_decl = TsASTFunctions.func_expr2func_decl(fun_name, func_expr);
           return {
             stmts: [func_decl],
@@ -185,10 +186,11 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
     var stmts = []; 
     var control_vars = [];
     var control_nums = [];
-  
+
     //For each type in the arg_types array generates the variable of the respective type
     for (var i=0; i<arg_types.length; i++) {
       //Creates the variable and assignment of the type
+    
       var ret = createSymbAssignment(arg_types[i],program_info,fuel_var);
       stmts = stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 

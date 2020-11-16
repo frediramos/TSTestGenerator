@@ -188,18 +188,21 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var control_nums = [];
   var function_info=program_info.getFunctionInfo(fun_name);
 
+
+
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
   //Creation the arguments of the function 
   var ret_args = generateSymbolicTypes.createArgSymbols(function_info.arg_types,program_info);
   stmts=stmts.concat(ret_args.stmts);
 
+  
   //Checks if any argument has more than one possible value
   if(ret_args.control[0]!==undefined){
     control_vars = control_vars.concat(ret_args.control);
     control_nums = control_nums.concat(ret_args.control_num);
   }
-    
+   
 
   //Creates the function call and places the return value in a variable 
   var x =freshVars.freshXVar();
@@ -410,6 +413,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   //Functions tests will be created
   Object.keys(functions_info).forEach(function (fun_name) { 
 
+   
     curr_test = constant_code_str+"\n";
 
     //Calculates the test number 
