@@ -1,3 +1,5 @@
+//Interfaces desaparecem
+
 interface Square {
     edgeSize: number;
 }
