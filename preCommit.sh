@@ -5,6 +5,8 @@ green=`tput setaf 2`
 yellow=`tput setaf 3`
 reset=`tput sgr0`
 
+echo "Running pre-commit tests"
+echo "------------------------"
 cd src/
 tsc main.ts
 for testfile in ../Tests/Tests_clean/*.ts; do
@@ -14,6 +16,7 @@ for testfile in ../Tests/Tests_clean/*.ts; do
     else
         echo "${red}$testfile failed${reset}"
     fi
+    echo "------------------------"
 done
 rm -rf ../Tests/Tests_clean/*.js
 for testfile in ../Tests/Tests_error/*.ts; do
@@ -23,6 +26,7 @@ for testfile in ../Tests/Tests_error/*.ts; do
     else
         echo "${red}$testfile failed${reset}"
     fi
+    echo "------------------------"
 done
 rm -rf ../Tests/Tests_error/*.js
 for testfile in ../Tests/Tests_unsupported/*.ts; do
@@ -32,6 +36,7 @@ for testfile in ../Tests/Tests_unsupported/*.ts; do
     else
         echo "${yellow}$testfile still unsupported${reset}"
     fi
+    echo "------------------------"
 done
 rm -rf ../Tests/Tests_unsupported/*.js
 rm -rf Test_*
