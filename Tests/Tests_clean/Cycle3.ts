@@ -7,15 +7,17 @@ class Animal{
 }
 
 class Person {
-    pet:Animal;
-    constructor(y:Animal){
+    pet:number|Animal;
+    constructor(y:number|Animal){
         this.pet=y;
     }
 }
 
 class Alien {
-    prey:Animal;
-    constructor(z:Animal){
+    prey:number|Animal;
+    age:number;
+    constructor(z:number|Animal, w:number){
         this.prey = z;
+        this.age = w;
     }
 }

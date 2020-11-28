@@ -339,9 +339,50 @@ function initializeClassesGraph(classes_graph:HashTable<ClassVertex>,program_inf
                 
                 var arg_type = program_info.ConstructorsInfo[class_name][i].arg_types[j];
                 var arg_type_str = program_info.Checker.typeToString(arg_type);
-                
-                if(arg_type_str !=="string" && arg_type_str !=="number") {
+
+                if (program_info.hasClass(arg_type_str)) {
                     classes_graph[class_name].edges.push(arg_type_str);
+                }
+                   
+                else if(program_info.isFunctionType(arg_type)){
+                    var ret_func_elements = program_info.getFunctionElements(arg_type);
+                    for(var k = 0; k < ret_func_elements[0].params.length; k++) {
+                        var param_type = ret_func_elements[0].params[k];
+                        var param_type_str = program_info.Checker.typeToString(param_type);
+                        if (program_info.hasClass(param_type_str)) {
+                            classes_graph[class_name].edges.push(param_type_str);
+                        }
+                    }
+                }
+                
+                else if(program_info.isArrayType(arg_type)){
+                    var arr_type = program_info.getTypeOfTheArray(arg_type);
+                    var arr_type_str = program_info.Checker.typeToString(arr_type);
+                    if (program_info.hasClass(arr_type_str)) {
+                        classes_graph[class_name].edges.push(arr_type_str);
+                    }
+                }
+
+                else if(program_info.isUnionType(arg_type)){
+                    var union_types = arg_type["types"];
+                    for(var k = 0; k < union_types.length; k++) {
+                        var union_type = union_types[k];
+                        var union_type_str = program_info.Checker.typeToString(union_type);
+                        if (program_info.hasClass(union_type_str)) {
+                            classes_graph[class_name].edges.push(union_type_str);
+                        }
+                    }
+                }
+
+                else if(program_info.isObjectLiteralType(arg_type)){
+                    var object_literal_dictionary = program_info.getObjectLiteralPropertyTypes(arg_type);
+                    Object.keys(object_literal_dictionary).forEach(function (property_name) {
+                        var object_literal_type = object_literal_dictionary[property_name];
+                        var object_literal_type_str = program_info.Checker.typeToString(object_literal_type);
+                        if (program_info.hasClass(object_literal_type_str)) {
+                            classes_graph[class_name].edges.push(object_literal_type_str);
+                        }
+                    });
                 }
             }
         }
@@ -394,6 +435,6 @@ export function findCycles(program_info:ProgramInfo) {
             classes_graph[class_name].visited = 2;
         }
     });
-
+    
     return cycles;
 }

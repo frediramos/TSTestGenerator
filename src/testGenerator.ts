@@ -23,6 +23,13 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
   for_stmts.push(utils.str2ast(constants.ENTER_STR));
 
   var class_constructors_info = program_info.getClassConstructorsInfo(class_name);
+
+  needs_for = false;
+  //This flag will be activated if any of the arguments of the constructor needs recursive construction
+  if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
+    needs_for = true;
+  }
+
   //Iterates over all the object constructors
   for(var i=0; i<class_constructors_info.length; i++){
     for_stmts = [];
@@ -31,12 +38,6 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
     //Iterates over all the argument types of that constructor
     for (var j=0; j<class_constructors_info[i].arg_types.length; j++) { 
       
-      //This flag will be activated if any of the arguments of the constructor needs recursive construction
-      needs_for = false
-      if(program_info.hasCycle(class_name)) {
-        needs_for = true;
-      }
-
       //Generates a variable of the argument type
       var ret = generateSymbolicTypes.createSymbAssignment(class_constructors_info[i].arg_types[j],program_info);
       for_stmts=for_stmts.concat(ret.stmts); 
@@ -53,7 +54,7 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
       if(ret.control !== undefined){
         control_vars = control_vars.concat(ret.control);
         control_nums = control_nums.concat(ret.control_num);
-      } 
+      }
     }
 
     //Generates the object var 
@@ -102,7 +103,7 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
         stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
         fuel_vars.push(fuel_var);
       }
-      
+
       //Creates a string with the arguments in parameters format, for example "x_1, x_2"
       var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
         if (cur_str === "") return prox; 
@@ -123,7 +124,7 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
       }
     }
   }
-
+  
   return {
     stmt:TsASTFunctions.createFunctionDeclaration("test_"+class_name+"_constructors",stmts,control_vars),
     control: control_vars,
@@ -261,7 +262,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     var interface_mock_constructor = generateSymbolicInterface.createInterfaceMockConstructor(interface_name,program_info);
     constant_code_str += utils.ast2str(interface_mock_constructor.stmts)+"\n\n";
 
-    var methods_info = program_info.getMethodsInfo()
+    var methods_info = program_info.getMethodsInfo();
     //Creation of the mock methods for the interface
     if(methods_info[interface_name]){
       Object.keys(methods_info[interface_name]).forEach(function (method_name) {
@@ -292,7 +293,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     //Generation of the constructors tests
     var ret = generateConstructorTests(class_name,program_info);
     tests.push(ret.stmt);
-    curr_test+=utils.ast2str(ret.stmt)+"\n";
+    curr_test+=utils.ast2str(ret.stmt)+"\n";      //ERROR!!!
 
     tests.push(utils.str2ast(constants.ENTER_STR));
 

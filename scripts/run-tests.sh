@@ -14,7 +14,7 @@ for testfile in ../Tests/Tests_clean/*.ts; do
     if node main.js $testfile; then
         echo "${green}$testfile succeeded${reset}"
     else
-        echo "${red}$testfile failed${reset}"
+        echo "${red}$testfile failed${reset}" && exit 1
     fi
     echo "------------------------"
 done
@@ -24,7 +24,7 @@ for testfile in ../Tests/Tests_error/*.ts; do
     if node main.js $testfile; then
         echo "${green}$testfile succeeded${reset}"
     else
-        echo "${red}$testfile failed${reset}"
+        echo "${red}$testfile failed${reset}" && exit 1
     fi
     echo "------------------------"
 done
@@ -41,4 +41,4 @@ done
 rm -rf ../Tests/Tests_unsupported/*.js
 rm -rf Test_*
 rm *.js
-cd ..
+cd ../scripts
