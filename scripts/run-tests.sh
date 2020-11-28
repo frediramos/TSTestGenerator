@@ -18,7 +18,7 @@ for testfile in ../Tests/Tests_clean/*.ts; do
     fi
     echo "------------------------"
 done
-rm -rf ../Tests/Tests_clean/*.js
+
 for testfile in ../Tests/Tests_error/*.ts; do
     [ -f "$testfile" ] || break
     if node main.js $testfile; then
@@ -28,7 +28,7 @@ for testfile in ../Tests/Tests_error/*.ts; do
     fi
     echo "------------------------"
 done
-rm -rf ../Tests/Tests_error/*.js
+
 for testfile in ../Tests/Tests_unsupported/*.ts; do
     [ -f "$testfile" ] || break
     if node main.js $testfile; then
@@ -38,7 +38,4 @@ for testfile in ../Tests/Tests_unsupported/*.ts; do
     fi
     echo "------------------------"
 done
-rm -rf ../Tests/Tests_unsupported/*.js
-rm -rf Test_*
-rm *.js
-cd ../scripts
+cd ..
