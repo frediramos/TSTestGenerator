@@ -163,15 +163,16 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
 
     getObjectLiteralPropertyTypes(type:ts.Type):{[property_name: string] : ts.Type;} {
         var propertiesTypeDictionary:{[property_name: string] : ts.Type;} = {};
+        var checker = this.Checker;
 
         //Stores the symbols of the object literal properties in a variable
         var object_literal_symbols = type.getProperties();   
-    
+
         //Generates the property type variable 
         Object.keys(object_literal_symbols).forEach(function (property_number) {
             
             var property_symbol = object_literal_symbols[property_number];
-            var property_type = this.Checker.getTypeOfSymbolAtLocation(property_symbol, property_symbol.valueDeclaration!);
+            var property_type = checker.getTypeOfSymbolAtLocation(property_symbol, property_symbol.valueDeclaration!);
             propertiesTypeDictionary[property_symbol.escapedName] = property_type;
         });
 

@@ -102,7 +102,7 @@ function generateFinalObjectLiteralAsrt(stmts,assert_vars: string[]) {
 
 
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
-function generateFinalAnyAsrt(ret_var:string) { 
+function generateFinalAnyAsrt() { 
   var x = freshVars.freshAssertVar();
   var ret_str = `var ${x} = true;`; 
   return {
@@ -137,7 +137,7 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
     case "void" : 
     case "undefined" : return generateFinalVoidAsrt(ret_var); 
 
-    case "any": return generateFinalAnyAsrt(ret_var); 
+    case "any": return generateFinalAnyAsrt(); 
     
     //if the type is not a primitive type
     default: 
@@ -176,9 +176,16 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
         Object.keys(object_literal_dictionary).forEach(function (property_name) {
 
           var type_asrt = generateFinalAsrt(object_literal_dictionary[property_name], ret_var+"."+property_name, program_info);
-      
+          
+          var type_asrt_str;
+          for(var i = 0; i < type_asrt.stmt.length;i++) {
+            type_asrt_str = utils.ast2str(type_asrt.stmt[i]);
+            type_asrt_str = `${type_asrt_str.substring(0, type_asrt_str.indexOf('=')+1)} typeof ${ret_var} === 'object' && ${ret_var}.hasOwnProperty(\'${property_name}\') && ${type_asrt_str.substring(type_asrt_str.indexOf('=')+1)}`
+
+            stmts.push(utils.str2ast(type_asrt_str));
+          }
+
           assert_vars.push(type_asrt.var);
-          stmts = stmts.concat(type_asrt.stmt);
         });
         
         return  generateFinalObjectLiteralAsrt(stmts, assert_vars);
