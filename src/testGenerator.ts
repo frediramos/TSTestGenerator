@@ -17,17 +17,19 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
   var stmts = [];
   var control_vars = [];
   var control_nums = [];
-  var needs_for;
+  var needs_for = false;
   var for_stmts = [];
+  var fuel_arr:string;
+  var index:string;
 
   for_stmts.push(utils.str2ast(constants.ENTER_STR));
 
   var class_constructors_info = program_info.getClassConstructorsInfo(class_name);
 
-  needs_for = false;
-  //This flag will be activated if any of the arguments of the constructor needs recursive construction
-  if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
+  if(program_info.hasCycle(class_name)) {
     needs_for = true;
+    fuel_arr = freshVars.freshFuelArrVar();
+    index = freshVars.freshIndexVar();
   }
 
   //Iterates over all the object constructors
@@ -46,8 +48,8 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
       //Checks if any argument needs recursive construction
       if(ret["needs_for"]) {
         needs_for = true;
-        var fuel_arr = ret["fuel_var"];       //Fuel array used for the recursive construction
-        var index = ret["index_var"];             //Index to access the positions of the fuel array
+        fuel_arr = ret["fuel_var"];       //Fuel array used for the recursive construction
+        index = ret["index_var"];             //Index to access the positions of the fuel array
       }
 
       //Checks if any argument has more than one possible value
@@ -78,8 +80,8 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
       var all_cases = [];
       var all_combinations = [];
       var fuel_vars = [];
-      var cases;
-      var combinations;
+      var cases = [];
+      var combinations = [];
       var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
   
       for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
@@ -139,22 +141,44 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   var control_vars = [];
   var control_nums = [];
   var method_info = program_info.getClassMethodInfo(class_name, method_name);
-
-  stmts.push(utils.str2ast(constants.ENTER_STR));
+  var for_stmts = [];
+  var needs_for = false;
+  var fuel_arr:string;
+  var index:string;
+  
+  for_stmts.push(utils.str2ast(constants.ENTER_STR));
 
   //Creation of the object where the method will be tested
-  var ret_obj = generateSymbolicObjects.createObjectSymbParams(class_name,program_info);
-  stmts=stmts.concat(ret_obj.stmts);
+  var ret_obj;
+  if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
+    ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name);
+    needs_for = true;
+    fuel_arr = ret_obj["fuel_var"];
+    index = ret_obj["index_var"];
+  }
+
+  else {
+    ret_obj = generateSymbolicObjects.createObjectSymbParams(class_name,program_info);
+  }
+
+  for_stmts = for_stmts.concat(ret_obj.stmts);
   //Checks if any argument has more than one possible value
   if(ret_obj.control[0]!==undefined){
     control_vars = control_vars.concat(ret_obj.control);
     control_nums = control_nums.concat(ret_obj.control_num);
   }
-    
   
   //Creates the arguments of the method
   var ret_args = generateSymbolicTypes.createArgSymbols(method_info.arg_types,program_info);
-  stmts=stmts.concat(ret_args.stmts);
+  for_stmts = for_stmts.concat(ret_args.stmts);
+
+  //Checks if any argument needs recursive construction
+  if(ret_args["needs_for"]) {
+    needs_for = true;
+    fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
+    index = ret_args["index_var"];             //Index to access the positions of the fuel array
+  }
+
   //Checks if any argument has more than one possible value
   if(ret_args.control[0]!==undefined){
     control_vars = control_vars.concat(ret_args.control);
@@ -165,14 +189,64 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   var x = freshVars.freshXVar();
   var ret_str = `var ${x} = ${ret_obj.var}.${method_name}(${ret_args.vars_str})`;
   var ret_ast = utils.str2ast(ret_str);
-  stmts.push(ret_ast);
-  
+  for_stmts.push(ret_ast);
+
   //Creates the assertion of the variable with the method's return type to the expected return type
   var ret_asrt = generateTypesAssertions.generateFinalAsrt(method_info.ret_type,x,program_info);
-  stmts = stmts.concat(ret_asrt.stmt);
-  stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
+  for_stmts = for_stmts.concat(ret_asrt.stmt);
+  for_stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
 
-  stmts.push(utils.str2ast(constants.ENTER_STR)); 
+  for_stmts.push(utils.str2ast(constants.ENTER_STR)); 
+
+  if(needs_for) {
+    var all_cases = [];
+    var all_combinations = [];
+    var fuel_vars = [];
+    var cases = [];
+    var combinations = [];
+    var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
+
+    for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
+      cases = [];
+      for (var j=0;j<max_constructors_recursive_objects;j++) {
+        cases.push(j+1);
+      }
+
+      all_cases.push(cases);
+      
+      combinations = utils.createCombinations(all_cases);
+      all_combinations = all_combinations.concat(combinations);
+    }
+    
+    var selected_combination;
+    var fuel_var;
+    for(var i = 0; i<20; i++){
+      stmts.push(utils.str2ast(constants.ENTER_STR));
+      selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
+      fuel_var = freshVars.freshFuelVar();
+      stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
+      fuel_vars.push(fuel_var);
+    }
+
+    //Creates a string with the arguments in parameters format, for example "x_1, x_2"
+    var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
+      if (cur_str === "") return prox; 
+      else return cur_str + ", " + prox; 
+    },"");  
+
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+    stmts.push(utils.str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
+
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+    stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+  }
+
+  else {
+    for(var i = 0; i<for_stmts.length; i++) {
+      stmts.push(for_stmts[i]);
+    }
+  }
 
   return {
     stmt: TsASTFunctions.createFunctionDeclaration("test"+method_number_test+"_"+method_name,stmts,control_vars),
@@ -188,15 +262,23 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var control_vars = [];
   var control_nums = [];
   var function_info=program_info.getFunctionInfo(fun_name);
+  var for_stmts = [];
+  var needs_for = false;
+  var fuel_arr:string;
+  var index:string;
 
-
-
-  stmts.push(utils.str2ast(constants.ENTER_STR));
+  for_stmts.push(utils.str2ast(constants.ENTER_STR));
 
   //Creation the arguments of the function 
   var ret_args = generateSymbolicTypes.createArgSymbols(function_info.arg_types,program_info);
-  stmts=stmts.concat(ret_args.stmts);
+  for_stmts=for_stmts.concat(ret_args.stmts);
 
+  //Checks if any argument needs recursive construction
+  if(ret_args["needs_for"]) {
+    needs_for = true;
+    fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
+    index = ret_args["index_var"];             //Index to access the positions of the fuel array
+  }
   
   //Checks if any argument has more than one possible value
   if(ret_args.control[0]!==undefined){
@@ -204,19 +286,68 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
     control_nums = control_nums.concat(ret_args.control_num);
   }
    
-
   //Creates the function call and places the return value in a variable 
   var x =freshVars.freshXVar();
   var ret_str = `var ${x} = ${fun_name}(${ret_args.vars_str})`;
   var ret_ast = utils.str2ast(ret_str);
-  stmts.push(ret_ast);  
+  for_stmts.push(ret_ast);  
 
   //Creates the assertion of the variable with the function's return type to the expected return type
   var ret_asrt = generateTypesAssertions.generateFinalAsrt(function_info.ret_type,x,program_info);
-  stmts = stmts.concat(ret_asrt.stmt);
-  stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
-  stmts.push(utils.str2ast(constants.ENTER_STR)); 
+  for_stmts = for_stmts.concat(ret_asrt.stmt);
+  for_stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
+  for_stmts.push(utils.str2ast(constants.ENTER_STR)); 
   
+  if(needs_for) {
+    var all_cases = [];
+    var all_combinations = [];
+    var fuel_vars = [];
+    var cases = [];
+    var combinations = [];
+    var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
+
+    for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
+      cases = [];
+      for (var j=0;j<max_constructors_recursive_objects;j++) {
+        cases.push(j+1);
+      }
+
+      all_cases.push(cases);
+      
+      combinations = utils.createCombinations(all_cases);
+      all_combinations = all_combinations.concat(combinations);
+    }
+    
+    var selected_combination;
+    var fuel_var;
+    for(var i = 0; i<20; i++){
+      stmts.push(utils.str2ast(constants.ENTER_STR));
+      selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
+      fuel_var = freshVars.freshFuelVar();
+      stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
+      fuel_vars.push(fuel_var);
+    }
+
+    //Creates a string with the arguments in parameters format, for example "x_1, x_2"
+    var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
+      if (cur_str === "") return prox; 
+      else return cur_str + ", " + prox; 
+    },"");  
+
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+    stmts.push(utils.str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
+
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+    stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+  }
+
+  else {
+    for(var i = 0; i<for_stmts.length; i++) {
+      stmts.push(for_stmts[i]);
+    }
+  }
+
   return {
     stmt: TsASTFunctions.createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,control_vars),
     control: control_vars,
@@ -293,7 +424,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     //Generation of the constructors tests
     var ret = generateConstructorTests(class_name,program_info);
     tests.push(ret.stmt);
-    curr_test+=utils.ast2str(ret.stmt)+"\n";      //ERROR!!!
+    curr_test+=utils.ast2str(ret.stmt)+"\n";
 
     tests.push(utils.str2ast(constants.ENTER_STR));
 
@@ -301,7 +432,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     all_cases = [];
     for(var i = 0; i<ret.control.length; i++){
       cases = [];
-      for (var j=0;j<ret.control_num.length;j++){
+      for (var j=0;j<ret.control_num[i];j++){
         cases.push(j+1);
       }
       all_cases.push(cases);

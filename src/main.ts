@@ -58,4 +58,4 @@ if (err) return;
 var test = tg.generateTests(prog_info, tests_dir, file_code_comp);
 
 //Writing the Typescript file, the compiled file and the tests in an output file
-fs.writeFileSync(tests_dir+"/"+process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0]+"-global-test.js",file_code+file_code_comp+"\n\n"+test);
+fs.writeFileSync(process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0]+"-global-test.js",file_code+file_code_comp+"\n\n"+test);

@@ -23,8 +23,8 @@ for(var i = 0; i<json.models.length;i++){
       if(x !== true) throw new Error(\"Assertion failure\");
     } catch(e) {
       console.log(e.message);
-        }
-    }\n\n`;
+    }
+  }\n\n`;
 
     fs.writeFileSync(test_path.split("/")[0]+"/concrete_tests/concrete_"+test_path.split("/")[1].substring(0, test_path.split("/")[1].lastIndexOf("."))+(i+1)+".js",constant_code_str+test_code);
 }
