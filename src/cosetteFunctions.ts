@@ -5,6 +5,7 @@ export class CosetteFunctions {
     boolean_creator:string = "symb_boolean"
     null_creator:string = "null"
     void_creator:string = "undefined"
+    any_creator:string ="symb"
   
     //function that will return the string of the call of the symbolic number creator
     numberCreator(x:string):string{
@@ -29,6 +30,11 @@ export class CosetteFunctions {
     //function that will return the string of the call of the void creator
     voidCreator():string{
       return `${this.void_creator}`
+    }
+
+    //function that will return the string of the call of the any creator
+    anyCreator():string{
+      return `${this.any_creator}`
     }
   
     //function that will return the string of the assertion of a typeof 

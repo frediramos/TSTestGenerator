@@ -9,7 +9,8 @@ function generateFinalStringAsrt(ret_var:string) {
   var ret_str = `var ${x} = typeof ${ret_var} === "string";`; 
   return {
     stmt:[utils.str2ast(ret_str)],
-    var:x
+    var:x,
+    expr_str: `typeof ${ret_var} === "string"`
   } 
 }
 
@@ -20,7 +21,8 @@ function generateFinalNumberAsrt(ret_var:string) {
   var ret_str = `var ${x} = typeof ${ret_var} === "number";`; 
   return {
     stmt:[utils.str2ast(ret_str)],
-    var:x
+    var:x,
+    expr_str: `typeof ${ret_var} === "number"`
   }
 }
 
@@ -31,7 +33,8 @@ function generateFinalBooleanAsrt(ret_var:string) {
   var ret_str = `var ${x} = typeof ${ret_var} === "boolean";`; 
   return {
     stmt:[utils.str2ast(ret_str)],
-    var:x
+    var:x,
+    expr_str: `typeof ${ret_var} === "boolean"`
   }
 }
 
@@ -42,7 +45,8 @@ function generateFinalNullAsrt(ret_var:string) {
   var ret_str = `var ${x} = ${ret_var} === null;`; 
   return {
     stmt:[utils.str2ast(ret_str)],
-    var:x
+    var:x,
+    expr_str: `${ret_var} === "null"`
   }
 }
 
@@ -53,7 +57,8 @@ function generateFinalVoidAsrt(ret_var:string) {
   var ret_str = `var ${x} = typeof ${ret_var} === "undefined";`; 
   return {
     stmt:[utils.str2ast(ret_str)],
-    var:x
+    var:x,
+    expr_str: `typeof ${ret_var} === "undefined"`
   }
 }
 
@@ -64,39 +69,60 @@ function generateFinalObjectAsrt(ret_var:string,ret_type: string) {
   var ret_str = `var ${x} = ${ret_var} instanceof ${ret_type};`; 
   return {
     stmt:[utils.str2ast(ret_str)],
-    var:x
+    var:x,
+    expr_str: `${ret_var} instanceof ${ret_type}`
   }
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is one of the types in an Union::::::::
-function generateFinalUnionAsrt(stmts,assert_vars: string[]) { 
+function generateFinalUnionAsrt<ts_type>(ret_type:ts_type,ret_var:string, program_info : IProgramInfo<ts_type>) { 
   var x = freshVars.freshAssertVar();
-  
-  var ret_str = `var ${x} = ${assert_vars[0]}`; 
+  var assert_vars = [];
+  var stmts = [];
+  var expr_str:string = "";
+
+  //Generate an assert for each possible type that the Union can be 
+  for(var i = 0;i<ret_type["types"].length;i++){
+    var type_asrt = generateFinalAsrt(ret_type["types"][i], ret_var, program_info);
+
+    expr_str = i === 0 ? type_asrt.expr_str : expr_str + "||" + type_asrt.expr_str;
+    assert_vars.push(type_asrt.var);
+    stmts = stmts.concat(type_asrt.stmt);
+  }
+
+  var ret_str = `${assert_vars[0]}`; 
   for(var i = 1;i<assert_vars.length;i++){
     ret_str += ` || ${assert_vars[i]}`;
   }
-  ret_str += `;`
-  stmts.push(utils.str2ast(ret_str));
+
+  var ret_str_stmt = `var ${x} = ${ret_str};`
+
+  stmts.push(utils.str2ast(ret_str_stmt));
   return {
     stmt:stmts,
-    var:x
+    var:x,
+    expr_str: expr_str
   }
 }
 
 //::::::::This function generates an assertion to check if the return type of a function is an instance of an object::::::::
-function generateFinalObjectLiteralAsrt(stmts,assert_vars: string[]) { 
+function generateFinalObjectLiteralAsrt<ts_type>(ret_type:ts_type,ret_var:string, program_info : IProgramInfo<ts_type>) { 
   var x = freshVars.freshAssertVar();
+  var object_literal_dictionary = program_info.getObjectLiteralPropertyTypes(ret_type);
+  var type_asrt_str =`(typeof ${ret_var} === 'object')`;
 
-  var ret_str = `var ${x} = ${assert_vars[0]}`; 
-  for(var i = 1;i<assert_vars.length;i++){
-      ret_str += ` && ${assert_vars[i]}`;
-  }
-  ret_str += `;`
-  stmts.push(utils.str2ast(ret_str));
+  //Generates the assert of each property of the object literal
+  Object.keys(object_literal_dictionary).forEach(function (property_name) {
+    var type_asrt = generateFinalAsrt(object_literal_dictionary[property_name], ret_var+"."+property_name, program_info);
+    type_asrt_str += "&& (" + type_asrt.expr_str + ")";
+  });
+
+  var type_asrt_str_2 = `var ${x} = ${type_asrt_str};`
+  
   return {
-      stmt:stmts,
-      var:x
+      stmt:utils.str2ast(type_asrt_str_2),
+      var:x,
+      expr_str: type_asrt_str
   }
 }
 
@@ -107,7 +133,8 @@ function generateFinalAnyAsrt() {
   var ret_str = `var ${x} = true;`; 
   return {
     stmt:[utils.str2ast(ret_str)],
-    var:x
+    var:x,
+    expr_str: "true"
   } 
 }
 
@@ -153,42 +180,12 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
 
       //If the type is an union it will assert to one of the possible types
       else if(program_info.isUnionType(ret_type)){
-        var assert_vars = [];
-        var stmts = [];
-
-        //Generate an assert for each possible type that the Union can be 
-        for(var i = 0;i<ret_type["types"].length;i++){
-          var type_asrt = generateFinalAsrt(ret_type["types"][i], ret_var, program_info);
-          assert_vars.push(type_asrt.var);
-          stmts = stmts.concat(type_asrt.stmt);
-        }
-        return generateFinalUnionAsrt(stmts,assert_vars);
+        return generateFinalUnionAsrt(ret_type, ret_var, program_info);
       } 
 
       //If the type is an object literal it will assert each property to the respective type
-      if (program_info.isObjectLiteralType(ret_type)) {
-        var assert_vars = [];
-        var stmts = [];
-
-        var object_literal_dictionary = program_info.getObjectLiteralPropertyTypes(ret_type);
-
-        //Generates the assert of each property of the object literal
-        Object.keys(object_literal_dictionary).forEach(function (property_name) {
-
-          var type_asrt = generateFinalAsrt(object_literal_dictionary[property_name], ret_var+"."+property_name, program_info);
-          
-          var type_asrt_str;
-          for(var i = 0; i < type_asrt.stmt.length;i++) {
-            type_asrt_str = utils.ast2str(type_asrt.stmt[i]);
-            type_asrt_str = `${type_asrt_str.substring(0, type_asrt_str.indexOf('=')+1)} typeof ${ret_var} === 'object' && ${ret_var}.hasOwnProperty(\'${property_name}\') && ${type_asrt_str.substring(type_asrt_str.indexOf('=')+1)}`
-
-            stmts.push(utils.str2ast(type_asrt_str));
-          }
-
-          assert_vars.push(type_asrt.var);
-        });
-        
-        return  generateFinalObjectLiteralAsrt(stmts, assert_vars);
+      if (program_info.isObjectLiteralType(ret_type)) {        
+        return  generateFinalObjectLiteralAsrt(ret_type, ret_var, program_info);
       } 
       
       //If the type reaches this case it is a type that the assertion is unsupported by the testGenerator

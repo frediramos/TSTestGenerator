@@ -80,6 +80,19 @@ function createVoidAssignment () {
     } 
 }
 
+//::::::::Function used to assign any to a variable::::::::
+function createAnyAssignment () { 
+  var x = freshVars.freshXVar(); 
+  var ret_str = `var ${x} = ${cosFunc.anyCreator()}`; 
+
+  return {
+      stmts: [utils.str2ast(ret_str)], 
+      var: x,
+      control: [],
+      control_num: []
+  } 
+}
+
 
 // GenerateSymbolicTypes
 
@@ -106,6 +119,8 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
       //If the type is null generates a undefined assignment
       case "void" : 
       case "undefined" : return createVoidAssignment();
+
+      case "any": return createAnyAssignment(); 
   
       //if the type is not a primitive type
       default:
