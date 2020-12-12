@@ -1,4 +1,6 @@
 export interface IProgramInfo <ts_type>{
+    getClassesInfo() : {[class_name: string] :ts_type};
+
     getConstructorsInfo() : {[class_name: string] : {arg_types:ts_type[], ret_type:ts_type}[];};
     getClassConstructorsInfo(class_name:string):{arg_types:ts_type[], ret_type:ts_type}[];
 

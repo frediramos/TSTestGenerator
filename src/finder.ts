@@ -31,6 +31,10 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     cycles_hash : HashTable<string[][]> = {};
     max_constructors_recursive_objects:number = 0;
 
+    getClassesInfo() :  HashTable<ts.Type> {
+        return this.ClassesInfo;
+    }
+
     getConstructorsInfo() : HashTable<ComposedInfo []> {
         return this.ConstructorsInfo;
     }

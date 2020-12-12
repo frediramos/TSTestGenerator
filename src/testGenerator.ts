@@ -158,7 +158,7 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   }
 
   else {
-    ret_obj = generateSymbolicObjects.createObjectSymbParams(class_name,program_info);
+    ret_obj = generateSymbolicObjects.createObjectCall(class_name);
   }
 
   for_stmts = for_stmts.concat(ret_obj.stmts);
@@ -369,19 +369,29 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   var cases;
   var combinations;
   
-  var cycles_hashtable = program_info.getCyclesHashTable();
+  var classes_info = program_info.getClassesInfo();
   //Create functions generated for when there is cyclic construction in the objects 
-  Object.keys(cycles_hashtable).forEach(function (class_name) {
+  Object.keys(classes_info).forEach(function (class_name) {
     //Recursive creation function generation
-    var recursive_create_function = generateSymbolicObjects.createObjectRecursiveSymbParams(class_name,program_info);
-    tests.push(recursive_create_function);
-    recursive_create_functions[class_name] = utils.ast2str(recursive_create_function);
-    constant_code_str += utils.ast2str(recursive_create_function)+"\n\n";
 
-    var class_constructors = program_info.getClassConstructorsInfo(class_name);
-    //Saves the number of constructors of the object with cyclic that has more constructors for later use in the fuel var array
-    if(program_info.getMaxConstructorsRecursiveObjects() < class_constructors.length)
-      program_info.setMaxConstructorsRecursiveObjects(class_constructors.length);
+    if(!program_info.hasCycle(class_name)) {
+      var create_function = generateSymbolicObjects.createObjectSymb(class_name,program_info);
+      tests.push(create_function);
+      create_function[class_name] = utils.ast2str(create_function);
+      constant_code_str += utils.ast2str(create_function)+"\n\n";
+    }
+
+    else {
+        var recursive_create_function = generateSymbolicObjects.createObjectRecursiveSymbParams(class_name,program_info);
+        tests.push(recursive_create_function);
+        recursive_create_functions[class_name] = utils.ast2str(recursive_create_function);
+        constant_code_str += utils.ast2str(recursive_create_function)+"\n\n";
+    
+        var class_constructors = program_info.getClassConstructorsInfo(class_name);
+        //Saves the number of constructors of the object with cyclic that has more constructors for later use in the fuel var array
+        if(program_info.getMaxConstructorsRecursiveObjects() < class_constructors.length)
+          program_info.setMaxConstructorsRecursiveObjects(class_constructors.length);
+    }
   });
 
   tests.push(utils.str2ast(constants.ENTER_STR));

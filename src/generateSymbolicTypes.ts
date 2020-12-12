@@ -133,7 +133,7 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
           } 
           //Otherwise it will be constructed by generating the arguments and a call to its constructor(s)
           else {
-            return generateSymbolicObjects.createObjectSymbParams(type_str,program_info);
+            return generateSymbolicObjects.createObjectCall(type_str);
           }
         } 
         
