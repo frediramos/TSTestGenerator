@@ -129,11 +129,11 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
   
           //If the construction of this object leads to a cycle it will be constructed recursively
           if(program_info.hasCycle(type_str)){
-            return generateSymbolicObjects.createObjectRecursiveCall(type_str, fuel_var);
+            return generateSymbolicObjects.createObjectRecursiveCall(type_str, program_info, fuel_var);
           } 
           //Otherwise it will be constructed by generating the arguments and a call to its constructor(s)
           else {
-            return generateSymbolicObjects.createObjectCall(type_str);
+            return generateSymbolicObjects.createObjectCall(type_str, program_info);
           }
         } 
         

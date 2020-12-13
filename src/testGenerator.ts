@@ -151,14 +151,14 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   //Creation of the object where the method will be tested
   var ret_obj;
   if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
-    ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name);
+    ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name, program_info);
     needs_for = true;
     fuel_arr = ret_obj["fuel_var"];
     index = ret_obj["index_var"];
   }
 
   else {
-    ret_obj = generateSymbolicObjects.createObjectCall(class_name);
+    ret_obj = generateSymbolicObjects.createObjectCall(class_name, program_info);
   }
 
   for_stmts = for_stmts.concat(ret_obj.stmts);
@@ -167,6 +167,8 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
     control_vars = control_vars.concat(ret_obj.control);
     control_nums = control_nums.concat(ret_obj.control_num);
   }
+
+  for_stmts.push(utils.str2ast(constants.ENTER_STR));
   
   //Creates the arguments of the method
   var ret_args = generateSymbolicTypes.createArgSymbols(method_info.arg_types,program_info);
@@ -347,6 +349,8 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
       stmts.push(for_stmts[i]);
     }
   }
+
+  console.log(control_vars);
 
   return {
     stmt: TsASTFunctions.createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,control_vars),
