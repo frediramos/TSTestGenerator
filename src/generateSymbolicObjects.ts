@@ -9,15 +9,20 @@ function getCreateMethodName(class_name:string):string{
     return "create"+class_name;
 }
 
-//::::::::This function generates the call of a constructor recursively with symbolic parameters::::::::
-export function createObjectCall<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>) {
-  var obj_var:string = freshVars.freshObjectVar();
+function checkObjectInfo<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>) {
   var control_vars:string[] = [];
   var control_nums:number[] = [];
   var needs_for:boolean = false;
   var fuel_arr:number[] = [];
   var index:string;
+
   var constructor_info = program_info.getClassConstructorsInfo(class_name);
+  if(constructor_info.length > 1) {
+    var control_var:string = freshVars.freshControlObjVar(); 
+    control_vars.push(control_var);
+    control_nums.push(constructor_info.length);
+  }
+
   var ret_args = generateSymbolicTypes.createArgSymbols(constructor_info[0].arg_types, program_info);
   
   //Checks if any argument has more than one possible value
@@ -37,18 +42,33 @@ export function createObjectCall<ts_type>(class_name:string, program_info:IProgr
   var create_control_args_str = control_vars.reduce(function (cur_str, prox) {
     if (cur_str === "") return prox; 
     else return cur_str + ", " + prox; 
-  },"");  
+  },"");
 
-  var call = `var ${obj_var} = ${getCreateMethodName(class_name)}(${create_control_args_str});`;
+  return {
+    control_vars: control_vars,
+    control_nums: control_nums,
+    needs_for: needs_for,
+    fuel_arr: fuel_arr,
+    index: index,
+    create_control_args_str: create_control_args_str
+  }
+}
+
+//::::::::This function generates the call of a constructor recursively with symbolic parameters::::::::
+export function createObjectCall<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>) {
+  var obj_var:string = freshVars.freshObjectVar();
+
+  var arguments_info = checkObjectInfo(class_name, program_info);
+  var call = `var ${obj_var} = ${getCreateMethodName(class_name)}(${arguments_info.create_control_args_str});`;
 
   return {
     stmts: [utils.str2ast(call)],
     var: obj_var,
-    control: control_vars,
-    control_num: control_nums,
-    needs_for: needs_for,
-    fuel_var: fuel_arr,
-    index_var: index
+    control: arguments_info.control_vars,
+    control_num: arguments_info.control_nums,
+    needs_for: arguments_info.needs_for,
+    fuel_var: arguments_info.fuel_arr,
+    index_var: arguments_info.index
   }
 }
 
@@ -69,7 +89,7 @@ export function createObjectRecursiveCall<ts_type>(class_name:string, program_in
   
     var call = `var ${recurs_obj_var} = ${getCreateMethodName(class_name)}(${fuel_var_str});`;
     return {
-      stmts: [ utils.str2ast(call) ],
+      stmts: [utils.str2ast(call)],
       var: recurs_obj_var,
       control: [],
       control_num: [],
@@ -163,7 +183,12 @@ export function createObjectRecursiveSymbParams<ts_type>(class_name:string, prog
     control_nums.push(class_constructors.length);
     control_vars.unshift(fuel_var);
   
-    return TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars);
+    return {
+      func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars),
+      control_vars: control_vars,
+      control_num: control_nums,
+      fuel: program_info.getMaxConstructorsRecursiveObjects()
+    }
 }
   
   
@@ -262,6 +287,45 @@ export function createObjectSymbParams<ts_type>(class_name:string, program_info:
     }
 }
 
+
+  /*
+  
+  class A {
+     ... 
+     constructor (args1); 
+     constructor (args2); 
+     ...
+     constructor (argsn) {
+       body
+     }
+     ...
+  }
+  
+  stmts_1, args_1', controls_1 = createArgSymbols(args1) 
+  ...
+  stmts_n, args_n', controls_n = createArgSymbols(argsn)
+  
+  Not Recursive(A)
+  
+  ======================> 
+  
+  function createA (control_obj, controls1, ..., controlsn) {
+     switch (control_obj) {
+       case 1:
+            stmts1 
+            return new A(args1')
+       case 2:
+            stmts2 
+            return new A(args2')
+       ...
+       default: 
+            stmtsn
+            return new A(argsn')
+     } 
+  }
+  
+  */
+
 export function createObjectSymb<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
   var symb_vars:string[] = [];
   var stmts = []; 
@@ -302,5 +366,10 @@ export function createObjectSymb<ts_type>(class_name:string, program_info:IProgr
     stmts.push(objs[0]);
   }
 
-  return TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars);
+  return {
+    func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars),
+    control_vars: control_vars,
+    control_nums: control_nums,
+    fuel: 0
+  }
 }

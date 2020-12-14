@@ -350,8 +350,6 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
     }
   }
 
-  console.log(control_vars);
-
   return {
     stmt: TsASTFunctions.createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,control_vars),
     control: control_vars,
@@ -367,29 +365,29 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   var tests = [];
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
-  var recursive_create_functions:finder.HashTable<string> = {};
   var constant_code_str:string = "";
   var all_cases = [];
   var cases;
   var combinations;
-  
+  var create_functions = {}
+
   var classes_info = program_info.getClassesInfo();
   //Create functions generated for when there is cyclic construction in the objects 
   Object.keys(classes_info).forEach(function (class_name) {
     //Recursive creation function generation
 
     if(!program_info.hasCycle(class_name)) {
-      var create_function = generateSymbolicObjects.createObjectSymb(class_name,program_info);
-      tests.push(create_function);
-      create_function[class_name] = utils.ast2str(create_function);
-      constant_code_str += utils.ast2str(create_function)+"\n\n";
+      var create_obj = generateSymbolicObjects.createObjectSymb(class_name,program_info);
+      create_functions[class_name] = create_obj;
+      tests.push(create_obj.func);
+      constant_code_str += utils.ast2str(create_obj.func)+"\n\n";
     }
 
     else {
-        var recursive_create_function = generateSymbolicObjects.createObjectRecursiveSymbParams(class_name,program_info);
-        tests.push(recursive_create_function);
-        recursive_create_functions[class_name] = utils.ast2str(recursive_create_function);
-        constant_code_str += utils.ast2str(recursive_create_function)+"\n\n";
+        var recursive_create_obj = generateSymbolicObjects.createObjectRecursiveSymbParams(class_name,program_info);
+        create_functions[class_name] = recursive_create_obj;
+        tests.push(recursive_create_obj.func);
+        constant_code_str += utils.ast2str(recursive_create_obj.func)+"\n\n";
     
         var class_constructors = program_info.getClassConstructorsInfo(class_name);
         //Saves the number of constructors of the object with cyclic that has more constructors for later use in the fuel var array
