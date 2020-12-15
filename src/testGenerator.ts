@@ -13,7 +13,6 @@ import * as generateTypesAssertions from "./generateTypesAssertions";
 
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests<ts_type>(class_name:string,program_info:IProgramInfo<ts_type>){
-  var symb_vars = [];
   var stmts = [];
   var control_vars = [];
   var control_nums = [];
@@ -23,107 +22,74 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
   var index:string;
 
   for_stmts.push(utils.str2ast(constants.ENTER_STR));
-
-  var class_constructors_info = program_info.getClassConstructorsInfo(class_name);
-
-  if(program_info.hasCycle(class_name)) {
+  
+  //Creation of the object
+  var ret_obj;
+  if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
+    ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name, program_info);
     needs_for = true;
-    fuel_arr = freshVars.freshFuelArrVar();
-    index = freshVars.freshIndexVar();
+    fuel_arr = ret_obj["fuel_var"];
+    index = ret_obj["index_var"];
   }
 
-  //Iterates over all the object constructors
-  for(var i=0; i<class_constructors_info.length; i++){
-    for_stmts = [];
-    symb_vars = [];
+  else {
+    ret_obj = generateSymbolicObjects.createObjectCall(class_name, program_info);
+  }
 
-    //Iterates over all the argument types of that constructor
-    for (var j=0; j<class_constructors_info[i].arg_types.length; j++) { 
+  for_stmts = for_stmts.concat(ret_obj.stmts);
+  //Checks if the object construction has more than one possible value for their arguments
+  if(ret_obj.control[0]!==undefined){
+    control_vars = control_vars.concat(ret_obj.control);
+    control_nums = control_nums.concat(ret_obj.control_num);
+  }
+
+  if(needs_for) {
+    var all_cases = [];
+    var all_combinations = [];
+    var fuel_vars = [];
+    var cases = [];
+    var combinations = [];
+    var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
+
+    for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
+      cases = [];
+      for (var j=0;j<max_constructors_recursive_objects;j++) {
+        cases.push(j+1);
+      }
+
+      all_cases.push(cases);
       
-      //Generates a variable of the argument type
-      var ret = generateSymbolicTypes.createSymbAssignment(class_constructors_info[i].arg_types[j],program_info);
-      for_stmts=for_stmts.concat(ret.stmts); 
-      symb_vars.push(ret.var); 
-
-      //Checks if any argument needs recursive construction
-      if(ret["needs_for"]) {
-        needs_for = true;
-        fuel_arr = ret["fuel_var"];       //Fuel array used for the recursive construction
-        index = ret["index_var"];             //Index to access the positions of the fuel array
-      }
-
-      //Checks if any argument has more than one possible value
-      if(ret.control !== undefined){
-        control_vars = control_vars.concat(ret.control);
-        control_nums = control_nums.concat(ret.control_num);
-      }
+      combinations = utils.createCombinations(all_cases);
+      all_combinations = all_combinations.concat(combinations);
+    }
+    
+    var selected_combination;
+    var fuel_var;
+    for(var i = 0; i<20; i++){
+      stmts.push(utils.str2ast(constants.ENTER_STR));
+      selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
+      fuel_var = freshVars.freshFuelVar();
+      stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
+      fuel_vars.push(fuel_var);
     }
 
-    //Generates the object var 
-    var obj = freshVars.freshObjectVar();
-    //If the object is an interface it adds a prefix 
-    if(program_info.hasInterface(class_name))
-      obj = "interface_" + obj;
-
-    //Creates a string with the arguments in parameters format, for example "x_1,x_2"
-    var constructor_args_str = symb_vars.reduce(function (cur_str, prox) {
+    //Creates a string with the arguments in parameters format, for example "x_1, x_2"
+    var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
       if (cur_str === "") return prox; 
       else return cur_str + ", " + prox; 
     },"");  
 
-    //Generates the assignment of the object variable to a new object of the given type
-    var constructor_ret_str = `var ${obj} = new ${class_name}(${constructor_args_str})`;
-    var constructor_ret_stmt = utils.str2ast(constructor_ret_str); 
-    for_stmts.push(constructor_ret_stmt);
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+    stmts.push(utils.str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
 
-    if(needs_for) {
-      var all_cases = [];
-      var all_combinations = [];
-      var fuel_vars = [];
-      var cases = [];
-      var combinations = [];
-      var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
-  
-      for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
-        cases = [];
-        for (var j=0;j<max_constructors_recursive_objects;j++) {
-          cases.push(j+1);
-        }
-  
-        all_cases.push(cases);
-        
-        combinations = utils.createCombinations(all_cases);
-        all_combinations = all_combinations.concat(combinations);
-      }
-      
-      var selected_combination;
-      var fuel_var;
-      for(var i = 0; i<20; i++){
-        stmts.push(utils.str2ast(constants.ENTER_STR));
-        selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
-        fuel_var = freshVars.freshFuelVar();
-        stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
-        fuel_vars.push(fuel_var);
-      }
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+    stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
+    stmts.push(utils.str2ast(constants.ENTER_STR));
+  }
 
-      //Creates a string with the arguments in parameters format, for example "x_1, x_2"
-      var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
-        if (cur_str === "") return prox; 
-        else return cur_str + ", " + prox; 
-      },"");  
-
-      stmts.push(utils.str2ast(constants.ENTER_STR));
-      stmts.push(utils.str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
-
-      stmts.push(utils.str2ast(constants.ENTER_STR));
-      stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
-      stmts.push(utils.str2ast(constants.ENTER_STR));
-    }
-
-    else {
-      for(var i = 0; i<for_stmts.length; i++) {
-        stmts.push(for_stmts[i]);
-      }
+  else {
+    for(var i = 0; i<for_stmts.length; i++) {
+      stmts.push(for_stmts[i]);
     }
   }
   
