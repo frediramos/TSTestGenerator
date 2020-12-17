@@ -23,19 +23,21 @@ function checkObjectInfo<ts_type>(class_name:string, program_info:IProgramInfo<t
     control_nums.push(constructor_info.length);
   }
 
-  var ret_args = generateSymbolicTypes.createArgSymbols(constructor_info[0].arg_types, program_info);
+  for(var i=0; i<constructor_info.length; i++) {
+    var ret_args = generateSymbolicTypes.createArgSymbols(constructor_info[i].arg_types, program_info);
   
-  //Checks if any argument has more than one possible value
-  if(ret_args.control[0]!==undefined){
-    control_vars = control_vars.concat(ret_args.control);
-    control_nums = control_nums.concat(ret_args.control_num);
-  }
-
-  //Checks if any argument needs recursive construction
-  if(ret_args["needs_for"]) {
-    needs_for = true;
-    fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
-    index = ret_args["index_var"];             //Index to access the positions of the fuel array
+    //Checks if any argument has more than one possible value
+    if(ret_args.control[0]!==undefined){
+      control_vars = control_vars.concat(ret_args.control);
+      control_nums = control_nums.concat(ret_args.control_num);
+    }
+  
+    //Checks if any argument needs recursive construction
+    if(ret_args["needs_for"]) {
+      needs_for = true;
+      fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
+      index = ret_args["index_var"];             //Index to access the positions of the fuel array
+    }
   }
 
   //Creates a string with the arguments in parameters format, for example "x_1, x_2"
@@ -98,7 +100,32 @@ export function createObjectRecursiveCall<ts_type>(class_name:string, program_in
       index_var: index
     }
 }
-  
+
+function updateGlobalControlVars(arr1:string[], arr2:string[]) {
+
+  var max_length = Math.max(arr1.length, arr2.length);
+  var subst = {};
+
+  for(var i = 0; i < max_length; i++) {
+    if(i < arr1.length && i < arr2.length) {
+      subst[arr2[i]] = arr1[i];
+    }
+
+    arr1[i] = arr1[i] || arr2[i]; 
+  }
+
+  return subst;
+}
+
+function updateGlobalControlNums(arr1:number[], arr2:number[]):void {
+
+  var max_length = Math.max(arr1.length, arr2.length);
+
+  for(var i = 0; i < max_length; i++) {
+    arr1[i] = Math.max(arr1[i] || 0, arr2[i] || 0); 
+  }
+}
+
   /*
   
   class A {
@@ -120,26 +147,33 @@ export function createObjectRecursiveCall<ts_type>(class_name:string, program_in
   
   ======================> 
   
-  function createA (fuel, controls1, ..., controlsn) {
+  function createA (fuel) {
      if (fuel.length === 0) return null; 
-     var control = fuel.pop(); 
-     switch (control) {
+     var control_arr = fuel.pop(); 
+     var control_1_1 = control_arr[1];
+     ...
+     var control_1_n = control_arr[n];
+     ...
+     var control_k_1 = control_arr[m];
+     ...
+     var control_k_j = control_arr[m+j-1]; 
+     switch (control_arr[0]) {
        case 1:
             stmts1 
-            return new A(args1')
+            return createA(fuel)
        case 2:
             stmts2 
-            return new A(args2')
+            return createA(fuel)
        ...
        default: 
             stmtsn
-            return new A(argsn')
+            return createA(fuel)
      } 
   }
   
   */
 //::::::::This function generates the call of a constructor that needs recursive behaviour with symbolic parameters::::::::
-export function createObjectRecursiveSymbParams<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
+export function createObjectRecursiveSymb<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
     
     var symb_vars:string[] = [];
     var stmts = []; 
@@ -147,6 +181,7 @@ export function createObjectRecursiveSymbParams<ts_type>(class_name:string, prog
     var control_vars:string[] = [];
     var control_nums:number[] = [];
     var class_constructors = program_info.getClassConstructorsInfo(class_name);
+    var global_control_nums:number[] = [];
     
     //Creates the fuel var and the if statement at the beginning of the create function for objects with cyclic construction
     var fuel_var:string = freshVars.freshFuelVar();
@@ -166,9 +201,10 @@ export function createObjectRecursiveSymbParams<ts_type>(class_name:string, prog
       var ret = generateSymbolicTypes.createArgSymbols(class_constructors[i].arg_types,program_info,fuel_var);
       symb_vars = symb_vars.concat(ret.vars);
       //Checks if any argument has more than one possible value
-      if(ret.control!==undefined){
+      if(ret.control!==undefined) {
         control_vars = control_vars.concat(ret.control);
         control_nums = control_nums.concat(ret.control_num);
+        //updateGlobalControlNums(global_control_nums, control_nums);
       }
   
       //Generates the return statement for the object that was constructed
@@ -334,6 +370,12 @@ export function createObjectSymb<ts_type>(class_name:string, program_info:IProgr
   var control_nums:number[] = [];
   var class_constructors = program_info.getClassConstructorsInfo(class_name);
 
+  if(class_constructors.length>1) {
+    var control_var:string = freshVars.freshControlObjVar(); 
+    control_vars.push(control_var);
+    control_nums.push(class_constructors.length);
+  }
+
   //Iterates over all the object constructors 
   for(var i=0; i<class_constructors.length; i++){
     symb_vars=[];
@@ -345,6 +387,8 @@ export function createObjectSymb<ts_type>(class_name:string, program_info:IProgr
     if(ret.control!==undefined){
       control_vars = control_vars.concat(ret.control);
       control_nums = control_nums.concat(ret.control_num);
+      //updateGlobalControlVars(control_vars, ret.control);
+      //updateGlobalControlNums(control_nums, ret.control_num);
     }
 
     //Generates the return statement for the object that was constructed
@@ -353,16 +397,13 @@ export function createObjectSymb<ts_type>(class_name:string, program_info:IProgr
   }
 
   //Checks if the class has more than one constructor and if it has it will create a switch case for each of them
-  if(class_constructors.length>1){
-    var control_var:string = freshVars.freshControlObjVar(); 
+  if(class_constructors.length>1) {
     var switch_stmt = TsASTFunctions.createSwitchStmt(control_var, objs);
     stmts.push(switch_stmt); 
-    control_vars.push(control_var);
-    control_nums.push(class_constructors.length);
   }
   
   //If it has only one constructor, it will only use the object var assignment already made
-  else{
+  else {
     stmts.push(objs[0]);
   }
 

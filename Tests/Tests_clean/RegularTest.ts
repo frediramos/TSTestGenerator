@@ -1,9 +1,10 @@
 class Animal {
     position:number;
 
-    constructor(x:number,y:number);
-    constructor(x:number){
+    constructor(x:number, z:number|string, y:number);
+    constructor(x:number, z:number|string){
         this.position=x;
+        console.log(z);
     }
     walk(dist:number, friend:Animal) : number {
         this.position += dist;

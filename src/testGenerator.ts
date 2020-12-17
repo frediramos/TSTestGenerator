@@ -350,15 +350,15 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     }
 
     else {
-        var recursive_create_obj = generateSymbolicObjects.createObjectRecursiveSymbParams(class_name,program_info);
-        create_functions[class_name] = recursive_create_obj;
-        tests.push(recursive_create_obj.func);
-        constant_code_str += utils.ast2str(recursive_create_obj.func)+"\n\n";
-    
-        var class_constructors = program_info.getClassConstructorsInfo(class_name);
-        //Saves the number of constructors of the object with cyclic that has more constructors for later use in the fuel var array
-        if(program_info.getMaxConstructorsRecursiveObjects() < class_constructors.length)
-          program_info.setMaxConstructorsRecursiveObjects(class_constructors.length);
+      var recursive_create_obj = generateSymbolicObjects.createObjectRecursiveSymb(class_name,program_info);
+      create_functions[class_name] = recursive_create_obj;
+      tests.push(recursive_create_obj.func);
+      constant_code_str += utils.ast2str(recursive_create_obj.func)+"\n\n";
+  
+      var class_constructors = program_info.getClassConstructorsInfo(class_name);
+      //Saves the number of constructors of the object with cyclic that has more constructors for later use in the fuel var array
+      if(program_info.getMaxConstructorsRecursiveObjects() < class_constructors.length)
+        program_info.setMaxConstructorsRecursiveObjects(class_constructors.length);
     }
   });
 
