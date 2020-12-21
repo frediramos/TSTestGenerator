@@ -32,3 +32,5 @@ function makeFreshVariable (prefix:string) {
   export var freshControlUnionVar = makeFreshVariable("control_union");
   //::::::::Function used to create the name of an index with the respective number ::::::::
   export var freshIndexVar = makeFreshVariable("i");
+   //::::::::Function used to create the name of a control variable -> used to select which assigment will be made to the argument::::::::
+   export var freshControlArgVar = makeFreshVariable("control_arg");

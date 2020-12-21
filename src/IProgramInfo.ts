@@ -34,4 +34,7 @@ export interface IProgramInfo <ts_type>{
 
     getStringFromType(ts_type):string;
     getObjectLiteralPropertyTypes(ts_type):{[property_name: string] : ts_type;};
+
+    updateCreateInfo(name:string, control_nums:number[]) : void;
+    getCreateInfo(name:string) : number[];
 }

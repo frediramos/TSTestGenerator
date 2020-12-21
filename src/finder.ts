@@ -30,6 +30,8 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     InterfacesInfo: HashTable<ts.Type> = {};
     cycles_hash : HashTable<string[][]> = {};
     max_constructors_recursive_objects:number = 0;
+    create_functions_info: HashTable<number[]> = {};
+
 
     getClassesInfo() :  HashTable<ts.Type> {
         return this.ClassesInfo;
@@ -181,6 +183,14 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
         });
 
         return propertiesTypeDictionary;
+    }
+
+    updateCreateInfo(name:string, control_nums:number[]) : void {
+        this.create_functions_info[name] = control_nums;
+    }
+
+    getCreateInfo(name:string) : number[] {
+        return this.create_functions_info[name];
     }
 }
 

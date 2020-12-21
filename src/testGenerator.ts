@@ -343,14 +343,16 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     //Recursive creation function generation
 
     if(!program_info.hasCycle(class_name)) {
-      var create_obj = generateSymbolicObjects.createObjectSymb(class_name,program_info);
+      var create_obj = generateSymbolicObjects.makeNonRecursiveCreateFunction(class_name,program_info);
+      program_info.updateCreateInfo(class_name, create_obj.control_nums);
       create_functions[class_name] = create_obj;
       tests.push(create_obj.func);
       constant_code_str += utils.ast2str(create_obj.func)+"\n\n";
     }
 
     else {
-      var recursive_create_obj = generateSymbolicObjects.createObjectRecursiveSymb(class_name,program_info);
+      var recursive_create_obj = generateSymbolicObjects.makeRecursiveCreateFunction(class_name,program_info);
+      program_info.updateCreateInfo(class_name, create_obj.control_nums);
       create_functions[class_name] = recursive_create_obj;
       tests.push(recursive_create_obj.func);
       constant_code_str += utils.ast2str(recursive_create_obj.func)+"\n\n";

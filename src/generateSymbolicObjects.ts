@@ -56,21 +56,35 @@ function checkObjectInfo<ts_type>(class_name:string, program_info:IProgramInfo<t
   }
 }
 
+function createControlArgs(control_num:number):string[] {
+  var args:string[] = [];
+  for(var i = 0; i < control_num; i++) {
+    args.push(freshVars.freshControlArgVar());
+  }
+  return args;
+}
+
 //::::::::This function generates the call of a constructor recursively with symbolic parameters::::::::
 export function createObjectCall<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>) {
   var obj_var:string = freshVars.freshObjectVar();
 
-  var arguments_info = checkObjectInfo(class_name, program_info);
-  var call = `var ${obj_var} = ${getCreateMethodName(class_name)}(${arguments_info.create_control_args_str});`;
+  //var arguments_info = checkObjectInfo(class_name, program_info);
+
+  console.log("createObjectCall: "+class_name);
+  var control_nums = program_info.getCreateInfo(class_name);
+  var control_vars = createControlArgs(control_nums.length);
+
+  var control_vars_str = control_vars.join(", ");
+  var call = `var ${obj_var} = ${getCreateMethodName(class_name)}(${control_vars_str});`;
 
   return {
     stmts: [utils.str2ast(call)],
     var: obj_var,
-    control: arguments_info.control_vars,
-    control_num: arguments_info.control_nums,
-    needs_for: arguments_info.needs_for,
-    fuel_var: arguments_info.fuel_arr,
-    index_var: arguments_info.index
+    control: control_vars,
+    control_num: control_nums,
+    needs_for: false,
+    fuel_var: [],
+    index_var: []
   }
 }
 
@@ -173,7 +187,7 @@ function updateGlobalControlNums(arr1:number[], arr2:number[]):void {
   
   */
 //::::::::This function generates the call of a constructor that needs recursive behaviour with symbolic parameters::::::::
-export function createObjectRecursiveSymb<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
+export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
     
     var symb_vars:string[] = [];
     var stmts = []; 
@@ -204,7 +218,7 @@ export function createObjectRecursiveSymb<ts_type>(class_name:string, program_in
       if(ret.control!==undefined) {
         control_vars = control_vars.concat(ret.control);
         control_nums = control_nums.concat(ret.control_num);
-        //updateGlobalControlNums(global_control_nums, control_nums);
+        updateGlobalControlNums(global_control_nums, control_nums);
       }
   
       //Generates the return statement for the object that was constructed
@@ -323,7 +337,6 @@ export function createObjectSymbParams<ts_type>(class_name:string, program_info:
     }
 }
 
-
   /*
   
   class A {
@@ -362,19 +375,13 @@ export function createObjectSymbParams<ts_type>(class_name:string, program_info:
   
   */
 
-export function createObjectSymb<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
+export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
   var symb_vars:string[] = [];
   var stmts = []; 
   var objs = [];
   var control_vars:string[] = [];
   var control_nums:number[] = [];
   var class_constructors = program_info.getClassConstructorsInfo(class_name);
-
-  if(class_constructors.length>1) {
-    var control_var:string = freshVars.freshControlObjVar(); 
-    control_vars.push(control_var);
-    control_nums.push(class_constructors.length);
-  }
 
   //Iterates over all the object constructors 
   for(var i=0; i<class_constructors.length; i++){
@@ -385,19 +392,27 @@ export function createObjectSymb<ts_type>(class_name:string, program_info:IProgr
     symb_vars = symb_vars.concat(ret.vars);
     //Checks if any argument has more than one possible value
     if(ret.control!==undefined){
-      control_vars = control_vars.concat(ret.control);
-      control_nums = control_nums.concat(ret.control_num);
-      //updateGlobalControlVars(control_vars, ret.control);
-      //updateGlobalControlNums(control_nums, ret.control_num);
+      //control_vars = control_vars.concat(ret.control);
+      //control_nums = control_nums.concat(ret.control_num);
+      var subst = updateGlobalControlVars(control_vars, ret.control);
+      updateGlobalControlNums(control_nums, ret.control_num);
     }
+
+    console.log(subst);
 
     //Generates the return statement for the object that was constructed
     var obj_ret = TsASTFunctions.generateReturnCall(class_name,ret.vars);
-    objs.push(TsASTFunctions.generateBlock(ret.stmts.concat(obj_ret)));
+
+    var case_stmts = ret.stmts.concat(obj_ret).map(utils.makeSubst(subst));
+
+    objs.push(TsASTFunctions.generateBlock(case_stmts));
   }
 
   //Checks if the class has more than one constructor and if it has it will create a switch case for each of them
   if(class_constructors.length>1) {
+    var control_var:string = freshVars.freshControlObjVar(); 
+    control_vars.unshift(control_var);
+    control_nums.unshift(class_constructors.length);
     var switch_stmt = TsASTFunctions.createSwitchStmt(control_var, objs);
     stmts.push(switch_stmt); 
   }
@@ -408,7 +423,7 @@ export function createObjectSymb<ts_type>(class_name:string, program_info:IProgr
   }
 
   return {
-    func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars),
+    func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name), stmts, control_vars),
     control_vars: control_vars,
     control_nums: control_nums,
     fuel: 0
