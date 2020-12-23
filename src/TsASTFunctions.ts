@@ -1,3 +1,4 @@
+import { string } from "yargs";
 import * as constants from "./constants";
 import * as utils from "./utils";
 
@@ -287,7 +288,7 @@ function createCaseStmt (i, block) {
 }
 
 //::::::::This function creates a switch statement::::::::
-export function createSwitchStmt (control_var, blocks) {
+function createSwitchStmt (discriminant, blocks) {
   var cases = [];
   
   //Creation of the numbered cases
@@ -301,12 +302,40 @@ export function createSwitchStmt (control_var, blocks) {
 
   return {
     type: "SwitchStatement",
-    discriminant: {
-      type: "Identifier",
-      name: control_var
-    },
+    discriminant: discriminant,
     cases: cases
   }
+}
+
+//::::::::This function creates a switch statement::::::::
+export function createSwitchStmtIndex0 (control_arr:string, blocks) {  
+
+  var discriminant = {
+    type: "MemberExpression",
+    computed: true,
+    object: {
+      type: "Identifier",
+      name: control_arr
+    },
+    property: {
+      type: "Literal",
+      value: 0,
+      raw: "0"
+    }
+  }
+
+  return createSwitchStmt(discriminant, blocks);
+}
+
+//::::::::This function creates a switch statement::::::::
+export function createSwitchStmtVar (control_var:string, blocks) {  
+
+  var discriminant = {
+    type: "Identifier",
+    name: control_var
+  }
+
+  return createSwitchStmt(discriminant, blocks);
 }
 
 //::::::::This function generates the output block::::::::
@@ -314,5 +343,35 @@ export function generateBlock(stmts) {
   return {
       type: "BlockStatement",
       body: stmts
+  }
+}
+
+//::::::::This function creates a control var declaration::::::::
+export function createControlVarDeclr(index:number, control_arr_var:string, control_var:string) {
+  return {
+    type: "VariableDeclaration",
+    declarations: [
+      {
+        type: "VariableDeclarator",
+        id: {
+          type: "Identifier",
+          name: control_var
+        },
+        init: {
+          type: "MemberExpression",
+          computed: true,
+          object: {
+            type: "Identifier",
+            name: control_arr_var
+          },
+          property: {
+            type: "Literal",
+            value: index,
+            raw: index+""
+          }
+        }
+      }
+    ],
+    kind: "var"
   }
 }

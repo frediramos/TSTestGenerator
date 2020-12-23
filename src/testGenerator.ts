@@ -352,7 +352,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
 
     else {
       var recursive_create_obj = generateSymbolicObjects.makeRecursiveCreateFunction(class_name,program_info);
-      program_info.updateCreateInfo(class_name, create_obj.control_nums);
+      program_info.updateCreateInfo(class_name, recursive_create_obj.control_nums);
       create_functions[class_name] = recursive_create_obj;
       tests.push(recursive_create_obj.func);
       constant_code_str += utils.ast2str(recursive_create_obj.func)+"\n\n";

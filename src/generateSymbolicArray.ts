@@ -47,7 +47,7 @@ export function createArrayOfType<ts_type>(arr_type:ts_type,program_info:IProgra
   
     //Creation of the switch statement such as the control var that decides which array assignment is made
     var control_var = freshVars.freshControlArrVar(); 
-    var switch_stmt = TsASTFunctions.createSwitchStmt(control_var, arrays);
+    var switch_stmt = TsASTFunctions.createSwitchStmtVar(control_var, arrays);
     stmts.push(switch_stmt); 
     stmts.push(utils.str2ast(constants.ENTER_STR));
   

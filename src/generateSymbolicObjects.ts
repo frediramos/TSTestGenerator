@@ -70,7 +70,6 @@ export function createObjectCall<ts_type>(class_name:string, program_info:IProgr
 
   //var arguments_info = checkObjectInfo(class_name, program_info);
 
-  console.log("createObjectCall: "+class_name);
   var control_nums = program_info.getCreateInfo(class_name);
   var control_vars = createControlArgs(control_nums.length);
 
@@ -147,7 +146,7 @@ function updateGlobalControlNums(arr1:number[], arr2:number[]):void {
      constructor (args1); 
      constructor (args2); 
      ...
-     constructor (argsn) {
+     constructor (argsk) {
        body
      }
      ...
@@ -155,7 +154,7 @@ function updateGlobalControlNums(arr1:number[], arr2:number[]):void {
   
   stmts_1, args_1', controls_1 = createArgSymbols(args1) 
   ...
-  stmts_n, args_n', controls_n = createArgSymbols(argsn)
+  stmts_k, args_k', controls_k = createArgSymbols(argsk)
   
   Recursive(A)
   
@@ -164,24 +163,20 @@ function updateGlobalControlNums(arr1:number[], arr2:number[]):void {
   function createA (fuel) {
      if (fuel.length === 0) return null; 
      var control_arr = fuel.pop(); 
-     var control_1_1 = control_arr[1];
+     var control_1 = control_arr[1];
      ...
-     var control_1_n = control_arr[n];
-     ...
-     var control_k_1 = control_arr[m];
-     ...
-     var control_k_j = control_arr[m+j-1]; 
+     var control_n = control_arr[n];
      switch (control_arr[0]) {
        case 1:
             stmts1 
-            return createA(fuel)
+            return new A(args_1')
        case 2:
             stmts2 
-            return createA(fuel)
+            return new A(args_2')
        ...
        default: 
-            stmtsn
-            return createA(fuel)
+            stmtsk
+            return new A(args_k')
      } 
   }
   
@@ -195,7 +190,6 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
     var control_vars:string[] = [];
     var control_nums:number[] = [];
     var class_constructors = program_info.getClassConstructorsInfo(class_name);
-    var global_control_nums:number[] = [];
     
     //Creates the fuel var and the if statement at the beginning of the create function for objects with cyclic construction
     var fuel_var:string = freshVars.freshFuelVar();
@@ -203,10 +197,10 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
     stmts.push(if_has_fuel_ast);
   
     //In case there is more than one constructor it will use the value popped of the fuel var in the switch statement
-    var control_obj_var:string = freshVars.freshControlObjVar();
-    var fuel_pop_str:string = `var ${control_obj_var} = ${fuel_var}.pop();`
+    var control_arr_var:string = freshVars.freshControlArrVar();
+    var fuel_pop_str:string = `var ${control_arr_var} = ${fuel_var}.pop();`
     stmts.push(utils.str2ast(fuel_pop_str));
-      
+    
     //Generation of all the construction cases, one for each constructor that the object has
     for(var i=0; i<class_constructors.length; i++){
       symb_vars=[];
@@ -216,27 +210,32 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
       symb_vars = symb_vars.concat(ret.vars);
       //Checks if any argument has more than one possible value
       if(ret.control!==undefined) {
-        control_vars = control_vars.concat(ret.control);
-        control_nums = control_nums.concat(ret.control_num);
-        updateGlobalControlNums(global_control_nums, control_nums);
+        var subst = updateGlobalControlVars(control_vars, ret.control);
+        updateGlobalControlNums(control_nums, ret.control_num);
       }
   
       //Generates the return statement for the object that was constructed
       var obj_ret = TsASTFunctions.generateReturnCall(class_name,ret.vars);
-      objs.push(TsASTFunctions.generateBlock(ret.stmts.concat(obj_ret)));
+      var case_stmts = ret.stmts.concat(obj_ret).map(utils.makeSubst(subst));
+      objs.push(TsASTFunctions.generateBlock(case_stmts));
     }
-  
-    //Creates the switch statement that will have all the possible constructions
-    var switch_stmt = TsASTFunctions.createSwitchStmt(control_obj_var, objs);
-    stmts.push(switch_stmt);
-  
+
+    for(var i = 0; i < control_vars.length; i++) {
+      var control_var_declaration = TsASTFunctions.createControlVarDeclr(i+1, control_arr_var, control_vars[i]);
+      stmts.push(control_var_declaration);
+    }
+
     control_nums.push(class_constructors.length);
     control_vars.unshift(fuel_var);
-  
+
+    //Creates the switch statement that will have all the possible constructions
+    var switch_stmt = TsASTFunctions.createSwitchStmtIndex0(control_arr_var, objs);
+    stmts.push(switch_stmt);
+
     return {
-      func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,control_vars),
+      func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,[fuel_var]),
       control_vars: control_vars,
-      control_num: control_nums,
+      control_nums: control_nums,
       fuel: program_info.getMaxConstructorsRecursiveObjects()
     }
 }
@@ -319,7 +318,7 @@ export function createObjectSymbParams<ts_type>(class_name:string, program_info:
     //Checks if the class has more than one constructor and if it has it will create a switch case for each of them
     if(class_constructors.length>1){
       var control_var:string = freshVars.freshControlObjVar(); 
-      var switch_stmt = TsASTFunctions.createSwitchStmt(control_var, objs);
+      var switch_stmt = TsASTFunctions.createSwitchStmtVar(control_var, objs);
       stmts.push(switch_stmt); 
       control_vars.push(control_var);
       control_nums.push(class_constructors.length);
@@ -398,8 +397,6 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
       updateGlobalControlNums(control_nums, ret.control_num);
     }
 
-    console.log(subst);
-
     //Generates the return statement for the object that was constructed
     var obj_ret = TsASTFunctions.generateReturnCall(class_name,ret.vars);
 
@@ -413,7 +410,7 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
     var control_var:string = freshVars.freshControlObjVar(); 
     control_vars.unshift(control_var);
     control_nums.unshift(class_constructors.length);
-    var switch_stmt = TsASTFunctions.createSwitchStmt(control_var, objs);
+    var switch_stmt = TsASTFunctions.createSwitchStmtVar(control_var, objs);
     stmts.push(switch_stmt); 
   }
   

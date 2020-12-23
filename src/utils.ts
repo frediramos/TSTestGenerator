@@ -96,8 +96,6 @@ function mapJS (f, p) {
       }
 
     case 'Identifier':
-      console.log("Got identifier");
-      console.log(p);
       return {
         type: p.type,
         name: p.name
@@ -291,8 +289,6 @@ function mapJS (f, p) {
       }
 
     case 'SwitchStatement':
-      console.log("Got switch");
-      console.log(p);
       var discriminant = mapJS(f, p.discriminant);
       var cases = p.cases.map((s) => mapJS(f, s));
       return {
@@ -346,14 +342,9 @@ function mapJS (f, p) {
 export function makeSubst(subst) {
 
   function replacer(stmt) {
-    console.log("replacer_0");
-    console.log(stmt.type);
     switch(stmt.type) {
       case 'Identifier':
-        console.log("replacer_1");
-        console.log(stmt.name);
         if(subst.hasOwnProperty(stmt.name)) {
-          console.log("replacer_2");
           return {
             type: 'Identifier',
             name: subst[stmt.name]

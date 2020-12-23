@@ -42,7 +42,7 @@ export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgra
 
   //Generates the switch statement and the control var that will decide which assignment is made to the union var
   var control_var = freshVars.freshControlUnionVar(); 
-  var switch_stmt = TsASTFunctions.createSwitchStmt(control_var, unions);
+  var switch_stmt = TsASTFunctions.createSwitchStmtVar(control_var, unions);
   stmts.push(switch_stmt); 
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
