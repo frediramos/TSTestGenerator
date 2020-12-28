@@ -11,7 +11,7 @@ import * as generateSymbolicTypes from "./generateSymbolicTypes";
 
 
 //::::::::This function generates a symbolic assignment for each type in the union::::::::
-export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgramInfo<ts_type>){
+export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgramInfo<ts_type>, fuel_var?:string){
   var stmts = [];
   var symb_vars = [];
   var unions = [];
@@ -26,7 +26,7 @@ export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgra
   //Checks the union_type "types" array to find which types the union can be
   for(var i =0;i<union_type["types"].length;i++){
     //Generates the variable for each possible union type
-    var ret = generateSymbolicTypes.createSymbAssignment(union_type["types"][i],program_info);
+    var ret = generateSymbolicTypes.createSymbAssignment(union_type["types"][i],program_info, fuel_var);
 
     //Checks if any argument has more than one possible value
     if(ret.control!==undefined){

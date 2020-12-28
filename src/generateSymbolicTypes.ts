@@ -164,7 +164,7 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
   
         //If the type is an union it will generate one assignment for each of the union possible types
         else if(program_info.isUnionType(arg_type)){
-          return generateSymbolicUnion.createUnionType(arg_type,program_info);
+          return generateSymbolicUnion.createUnionType(arg_type,program_info, fuel_var);
         } 
   
         else if(program_info.isObjectLiteralType(arg_type)){
