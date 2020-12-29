@@ -3,20 +3,12 @@ import finder = require("./finder");
 import tg = require("./testGenerator");
 const { execSync } = require("child_process");
 
-//Compiling file that is being tested
-var command = "tsc "+process.argv.slice(2)[0];
-execSync(command, (err, stdout, stderr) => {
-if (err) return;
-});
-
-
 //Deleting the directory for the function's tests if it exists
 var tests_dir = "Test_"+process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0];
 var command_tests_dir = "rm -rf "+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;
 });
-
 
 //Making the directory for the function's tests
 var command_tests_dir = "mkdir -p "+tests_dir;
@@ -39,6 +31,12 @@ try {
     console.log('Error:', e.stack);
 }
 
+//Compiling file that is being tested
+var command = "tsc "+process.argv.slice(2)[0];
+execSync(command, (err, stdout, stderr) => {
+if (err) return;
+});
+
 //Getting the code from the compiled file that is being tested
 var js_file = process.argv.slice(2)[0].substring(0, process.argv.slice(2)[0].lastIndexOf(".")) + ".js";
 var file_code_comp:string;
@@ -49,7 +47,7 @@ try {
     console.log('Error:', e.stack);
 }
 
-var remove_js_file = "rm "+js_file;
+var remove_js_file = "rm -f "+js_file;
 execSync(remove_js_file, (err, stdout, stderr) => {
 if (err) return;
 });

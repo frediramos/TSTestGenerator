@@ -92,10 +92,14 @@ export function createObjectRecursiveCall<ts_type>(class_name:string, program_in
     var recurs_obj_var:string = freshVars.freshObjectVar();
     var index:string = freshVars.freshIndexVar();
     
+    var new_fuel_vars = [];
     var fuel_var_str:string;
     if(!fuel_var){
-      var fuel_var = freshVars.freshFuelArrVar();
-      fuel_var_str = `${fuel_var}[${index}]`;
+      //var fuel_var = freshVars.freshFuelArrVar();
+      //fuel_var_str = `${fuel_var}[${index}]`;
+      var fuel_var = freshVars.freshFuelVar();
+      new_fuel_vars.push(fuel_var);
+      fuel_var_str = fuel_var;
     }
   
     else {
@@ -110,7 +114,8 @@ export function createObjectRecursiveCall<ts_type>(class_name:string, program_in
       control_num: [],
       needs_for: true,
       fuel_var: fuel_var,
-      index_var: index
+      index_var: index,
+      new_fuel_vars: new_fuel_vars
     }
 }
 

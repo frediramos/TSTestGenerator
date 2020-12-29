@@ -201,6 +201,10 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
     var stmts = []; 
     var control_vars = [];
     var control_nums = [];
+    var needs_for = false;
+    var fuel_arr:string;
+    var index:string;
+    var new_fuel_vars:string[] = [];
 
     //For each type in the arg_types array generates the variable of the respective type
     for (var i=0; i<arg_types.length; i++) {
@@ -214,7 +218,16 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
         control_vars = control_vars.concat(ret.control);   
         control_nums = control_nums.concat(ret.control_num);
       }
-        
+
+      if(ret["needs_for"]) {
+        needs_for = true;
+        fuel_arr = ret["fuel_var"];       //Fuel array used for the recursive construction
+        index = ret["index_var"];             //Index to access the positions of the fuel array
+      }
+
+      if(ret["new_fuel_vars"]) {
+        new_fuel_vars = new_fuel_vars.concat(ret["new_fuel_vars"]);
+      }
     }
   
     //Creates a string with the arguments later used as the parameters of the respective call
@@ -223,13 +236,13 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
       else return cur_str + ", " + prox; 
     },"");
   
-  
-    return{
+    return {
       stmts:stmts,
       vars:symb_vars,
       vars_str:args_str,
       control: control_vars,
-      control_num: control_nums
+      control_num: control_nums,
+      new_fuel_vars: new_fuel_vars
     }
 }
 

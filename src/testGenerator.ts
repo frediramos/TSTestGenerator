@@ -1,4 +1,4 @@
-var fs = require('fs');
+const fs = require('fs');
 import * as finder from "./finder";
 import {IProgramInfo} from "./IProgramInfo"
 import * as constants from "./constants";
@@ -12,7 +12,7 @@ import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
 
 //::::::::This function generates the call of all the constructors of a class::::::::
-function generateConstructorTests<ts_type>(class_name:string,program_info:IProgramInfo<ts_type>){
+function generateConstructorTests<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>, output_dir:string){
   var stmts = [];
   var control_vars = [];
   var control_nums = [];
@@ -20,8 +20,6 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
   var for_stmts = [];
   var fuel_arr:string;
   var index:string;
-
-  for_stmts.push(utils.str2ast(constants.ENTER_STR));
   
   //Creation of the object
   var ret_obj;
@@ -66,10 +64,9 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
     var selected_combination;
     var fuel_var;
     for(var i = 0; i<20; i++){
-      stmts.push(utils.str2ast(constants.ENTER_STR));
       selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
       fuel_var = freshVars.freshFuelVar();
-      stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
+      fs.appendFileSync(output_dir+"/fuels.js",`var ${fuel_var} = [${all_combinations[selected_combination]}];\n`);
       fuel_vars.push(fuel_var);
     }
 
@@ -77,14 +74,12 @@ function generateConstructorTests<ts_type>(class_name:string,program_info:IProgr
     var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
       if (cur_str === "") return prox; 
       else return cur_str + ", " + prox; 
-    },"");  
+    },"");
 
-    stmts.push(utils.str2ast(constants.ENTER_STR));
-    stmts.push(utils.str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
+    fs.appendFileSync(output_dir+"/fuels.js",`\nvar ${fuel_arr} = [${fuel_arr_args}];\n\nexports.${class_name} = ${fuel_arr};\n\n`);
 
     stmts.push(utils.str2ast(constants.ENTER_STR));
     stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
-    stmts.push(utils.str2ast(constants.ENTER_STR));
   }
 
   else {
@@ -234,38 +229,43 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var needs_for = false;
   var fuel_arr:string;
   var index:string;
+  var new_fuels_vars:string[] = [];
 
-  for_stmts.push(utils.str2ast(constants.ENTER_STR));
+  stmts.push(utils.str2ast(constants.ENTER_STR));
 
   //Creation the arguments of the function 
   var ret_args = generateSymbolicTypes.createArgSymbols(function_info.arg_types,program_info);
-  for_stmts=for_stmts.concat(ret_args.stmts);
+  stmts=stmts.concat(ret_args.stmts);
 
   //Checks if any argument needs recursive construction
-  if(ret_args["needs_for"]) {
+  /*if(ret_args["needs_for"]) {
     needs_for = true;
     fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
     index = ret_args["index_var"];             //Index to access the positions of the fuel array
-  }
+  }*/
   
   //Checks if any argument has more than one possible value
   if(ret_args.control[0]!==undefined){
     control_vars = control_vars.concat(ret_args.control);
     control_nums = control_nums.concat(ret_args.control_num);
   }
+
+  if(ret_args.new_fuel_vars.length>0) {
+    new_fuels_vars = ret_args.new_fuel_vars;
+  }
    
   //Creates the function call and places the return value in a variable 
   var x =freshVars.freshXVar();
   var ret_str = `var ${x} = ${fun_name}(${ret_args.vars_str})`;
   var ret_ast = utils.str2ast(ret_str);
-  for_stmts.push(ret_ast);  
+  stmts.push(ret_ast);  
 
   //Creates the assertion of the variable with the function's return type to the expected return type
   var ret_asrt = generateTypesAssertions.generateFinalAsrt(function_info.ret_type,x,program_info);
-  for_stmts = for_stmts.concat(ret_asrt.stmt);
-  for_stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
-  for_stmts.push(utils.str2ast(constants.ENTER_STR)); 
-  
+  stmts = stmts.concat(ret_asrt.stmt);
+  stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
+  stmts.push(utils.str2ast(constants.ENTER_STR)); 
+/*
   if(needs_for) {
     var all_cases = [];
     var all_combinations = [];
@@ -310,14 +310,54 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
     stmts.push(utils.str2ast(constants.ENTER_STR));
   }
 
+
   else {
     for(var i = 0; i<for_stmts.length; i++) {
       stmts.push(for_stmts[i]);
     }
   }
+*/
+  var params = new_fuels_vars.concat(control_vars);
 
   return {
-    stmt: TsASTFunctions.createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,control_vars),
+    stmt: TsASTFunctions.createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,params),
+    control: control_vars,
+    control_num: control_nums
+  }
+}
+
+function createFuelArrParams(fuel_vars_num:number):string[] {
+  var fuel_vars:string[] = [];
+
+  for(var i = 1; i <= fuel_vars_num; i++) {
+    fuel_vars.push("fuel_arr_"+i);
+  }
+  
+  return fuel_vars;
+}
+
+function createWrapperEnumeratorTest(fuel_vars_num:number, control_vars:string[], control_nums:number[], func_name:string) {
+  var stmts = [];
+
+  var fuel_params = createFuelArrParams(fuel_vars_num);
+
+  var length_fuel_vars_str = fuel_params.map(x=>x+".length").join(", ");
+  var min_fuel_length_str = `var fuel_length = Math.min(${length_fuel_vars_str})`;
+  stmts.push(utils.str2ast(min_fuel_length_str));
+
+  var single_func_name = func_name+"_single";
+  var indexed_fuel_vars = fuel_params.map(x=>x+"[i]");
+  var single_func_args_str = indexed_fuel_vars.concat(control_vars).join(", ");
+  var wrapper_for_code = `
+    for(var i = 0; i < fuel_length; i++) {
+		  ${single_func_name}(${single_func_args_str});
+    }`
+
+  stmts.push(utils.str2ast(wrapper_for_code));
+    
+  var params = fuel_params.concat(control_vars);
+  return {
+    stmt: TsASTFunctions.createFunctionDeclaration(func_name, stmts, params),
     control: control_vars,
     control_num: control_nums
   }
@@ -332,16 +372,16 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
   var constant_code_str:string = "";
-  var all_cases = [];
-  var cases;
+  var all_cases:number[][] = [];
+  var cases:number[];
   var combinations;
-  var create_functions = {}
+  var create_functions = {};
+  var fuels_constant_code:string = "";
+  var first_needs_fuel:boolean = true;
 
   var classes_info = program_info.getClassesInfo();
-  //Create functions generated for when there is cyclic construction in the objects 
+  //Create functions generated for object recursive and non-recursive objects
   Object.keys(classes_info).forEach(function (class_name) {
-    //Recursive creation function generation
-
     if(!program_info.hasCycle(class_name)) {
       var create_obj = generateSymbolicObjects.makeNonRecursiveCreateFunction(class_name,program_info);
       program_info.updateCreateInfo(class_name, create_obj.control_nums);
@@ -351,6 +391,12 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     }
 
     else {
+      if(first_needs_fuel) {
+        fuels_constant_code += `const fuels = require("fuels");\n\n`;
+        first_needs_fuel = false;
+      }
+      fuels_constant_code += `var ${class_name}_fuels = fuels.${class_name};\n`;
+
       var recursive_create_obj = generateSymbolicObjects.makeRecursiveCreateFunction(class_name,program_info);
       program_info.updateCreateInfo(class_name, recursive_create_obj.control_nums);
       create_functions[class_name] = recursive_create_obj;
@@ -402,7 +448,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     curr_test += comment+"\n";
 
     //Generation of the constructors tests
-    var ret = generateConstructorTests(class_name,program_info);
+    var ret = generateConstructorTests(class_name, program_info, output_dir);
     tests.push(ret.stmt);
     curr_test+=utils.ast2str(ret.stmt)+"\n";
 
@@ -445,7 +491,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     }
 
     //It will write the constructor's test in a file inside the TS file test directory
-    fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",js_file+"\n\n"+utils.stringManipulation(curr_test));
+    fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
 
     fun_names[num_fun] = constructor_call_str;
     num_fun++;
@@ -513,7 +559,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       }
 
       //It will write the method's test in a file inside the TS file test directory
-      fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",js_file+"\n\n"+utils.stringManipulation(curr_test));
+      fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
 
       fun_names[num_fun] = method_call_str;
       num_fun++;
@@ -581,7 +627,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     }
     
     //It will write the function's test in a file inside the TS file test directory
-    fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",js_file+"\n\n"+utils.stringManipulation(curr_test));
+    fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
 
     fun_names[num_fun]=fun_call_str;
     num_fun++;
