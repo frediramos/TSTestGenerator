@@ -9,17 +9,17 @@ export class CosetteFunctions {
   
     //function that will return the string of the call of the symbolic number creator
     numberCreator(x:string):string{
-      return `${this.number_creator}(${x})`
+      return `${this.number_creator}("${x}")`
     }
   
     //function that will return the string of the call of the symbolic string creator
     stringCreator(x:string):string{
-      return `${this.string_creator}(${x})`
+      return `${this.string_creator}("${x}")`
     }
   
     //function that will return the string of the call of the symbolic boolean creator
     booleanCreator(x:string):string{
-      return `${this.boolean_creator}(${x})`
+      return `${this.boolean_creator}("${x}")`
     }
     
     //function that will return the string of the call of the null creator
@@ -33,8 +33,8 @@ export class CosetteFunctions {
     }
 
     //function that will return the string of the call of the any creator
-    anyCreator():string{
-      return `${this.any_creator}`
+    anyCreator(x:string):string{
+      return `${this.any_creator}("${x}")`
     }
   
     //function that will return the string of the assertion of a typeof 

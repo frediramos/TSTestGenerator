@@ -83,7 +83,7 @@ function createVoidAssignment () {
 //::::::::Function used to assign any to a variable::::::::
 function createAnyAssignment () { 
   var x = freshVars.freshXVar(); 
-  var ret_str = `var ${x} = ${cosFunc.anyCreator()}`; 
+  var ret_str = `var ${x} = ${cosFunc.anyCreator(x)}`; 
 
   return {
       stmts: [utils.str2ast(ret_str)], 

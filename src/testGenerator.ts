@@ -10,6 +10,8 @@ import * as generateSymbolicObjects from "./generateSymbolicObjects";
 import * as generateSymbolicInterface from "./generateSymbolicInterface";
 import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
+import { rest } from "lodash";
+import { array } from "yargs";
 
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>, output_dir:string){
@@ -230,6 +232,8 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var fuel_arr:string;
   var index:string;
   var new_fuels_vars:string[] = [];
+  var rets = [];
+  var func_name = "test"+fun_number_test+"_"+fun_name;
 
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
@@ -252,6 +256,7 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
 
   if(ret_args.new_fuel_vars.length>0) {
     new_fuels_vars = ret_args.new_fuel_vars;
+    rets.push(createWrapperEnumeratorTest(new_fuels_vars.length, control_vars.length, control_nums, func_name));
   }
    
   //Creates the function call and places the return value in a variable 
@@ -319,11 +324,13 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
 */
   var params = new_fuels_vars.concat(control_vars);
 
-  return {
-    stmt: TsASTFunctions.createFunctionDeclaration("test"+fun_number_test+"_"+fun_name,stmts,params),
+  rets.push ({
+    stmt: TsASTFunctions.createFunctionDeclaration(func_name+"_single",stmts,params),
     control: control_vars,
     control_num: control_nums
-  }
+  })
+
+  return rets;
 }
 
 function createFuelArrParams(fuel_vars_num:number):string[] {
@@ -336,17 +343,30 @@ function createFuelArrParams(fuel_vars_num:number):string[] {
   return fuel_vars;
 }
 
-function createWrapperEnumeratorTest(fuel_vars_num:number, control_vars:string[], control_nums:number[], func_name:string) {
+function createIntArray(n:number) : number[] {
+  var arr = new Array(n);
+  
+  for(var i = 0; i < n; i++) {
+    arr[i] = i;
+  }
+
+  return arr;
+}
+
+function createWrapperEnumeratorTest(fuel_vars_num:number, control_vars_num:number, control_nums:number[], func_name:string) {
   var stmts = [];
 
   var fuel_params = createFuelArrParams(fuel_vars_num);
+  var control_arr_var = freshVars.freshControlArrVar();
+  var control_param_str = control_vars_num > 0 ? ", "+control_arr_var+".length" : ""; 
 
   var length_fuel_vars_str = fuel_params.map(x=>x+".length").join(", ");
-  var min_fuel_length_str = `var fuel_length = Math.min(${length_fuel_vars_str})`;
+  var min_fuel_length_str = `var fuel_length = Math.min(${length_fuel_vars_str+control_param_str})`;
   stmts.push(utils.str2ast(min_fuel_length_str));
 
   var single_func_name = func_name+"_single";
   var indexed_fuel_vars = fuel_params.map(x=>x+"[i]");
+  var control_vars = createIntArray(control_vars_num).map(x=>control_arr_var+"[i]["+x+"]");
   var single_func_args_str = indexed_fuel_vars.concat(control_vars).join(", ");
   var wrapper_for_code = `
     for(var i = 0; i < fuel_length; i++) {
@@ -355,10 +375,10 @@ function createWrapperEnumeratorTest(fuel_vars_num:number, control_vars:string[]
 
   stmts.push(utils.str2ast(wrapper_for_code));
     
-  var params = fuel_params.concat(control_vars);
+  var params = control_vars_num > 0 ? fuel_params.concat(control_arr_var) : fuel_params;
   return {
     stmt: TsASTFunctions.createFunctionDeclaration(func_name, stmts, params),
-    control: control_vars,
+    control: control_arr_var,
     control_num: control_nums
   }
 }
@@ -585,14 +605,19 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     curr_test += comment+"\n";
 
     //Generates the function's test function
-    var ret = generateFunctionTest(fun_name,number_test[fun_name],program_info);
-    tests.push(ret.stmt);
-    curr_test += utils.ast2str(ret.stmt)+"\n";
+    var rets = generateFunctionTest(fun_name,number_test[fun_name],program_info);
+
+    var functions_str = rets.map(function(ret){
+      tests.push(ret.stmt);
+      return utils.ast2str(ret.stmt);
+    }).join("\n");
+    
+    curr_test += functions_str;
 
     tests.push(utils.str2ast(constants.ENTER_STR));
    
     //It will generate an array with the multiple options that each function will have for their switch statement(s), if they exist
-    all_cases = [];
+    /*all_cases = [];
     for(var i = 0; i<ret.control.length; i++){
       cases = [];
       for (var j=0;j<ret.control_num[i];j++){
@@ -600,7 +625,6 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       }
       all_cases.push(cases);
     }
-
 
     var fun_call_str;
     var fun_call;
@@ -625,11 +649,11 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       curr_test += "\n"+fun_call_str;
       tests.push(utils.str2ast(constants.ENTER_STR)); 
     }
-    
+    */
     //It will write the function's test in a file inside the TS file test directory
     fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
 
-    fun_names[num_fun]=fun_call_str;
+    //fun_names[num_fun]=fun_call_str;
     num_fun++;
   });
 
