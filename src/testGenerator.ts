@@ -10,8 +10,6 @@ import * as generateSymbolicObjects from "./generateSymbolicObjects";
 import * as generateSymbolicInterface from "./generateSymbolicInterface";
 import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
-import { rest } from "lodash";
-import { array } from "yargs";
 
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>, output_dir:string){
@@ -20,7 +18,7 @@ function generateConstructorTests<ts_type>(class_name:string, program_info:IProg
   var control_nums = [];
   var needs_for = false;
   var for_stmts = [];
-  var fuel_arr:string;
+  var fuel_var:string;
   var index:string;
   
   //Creation of the object
@@ -28,7 +26,7 @@ function generateConstructorTests<ts_type>(class_name:string, program_info:IProg
   if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
     ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name, program_info);
     needs_for = true;
-    fuel_arr = ret_obj["fuel_var"];
+    fuel_var = ret_obj["fuel_var"];
     index = ret_obj["index_var"];
   }
 
@@ -44,6 +42,9 @@ function generateConstructorTests<ts_type>(class_name:string, program_info:IProg
   }
 
   if(needs_for) {
+
+    //Combinations------------------------------------------------
+    /*
     var all_cases = [];
     var all_combinations = [];
     var fuel_vars = [];
@@ -80,8 +81,14 @@ function generateConstructorTests<ts_type>(class_name:string, program_info:IProg
 
     fs.appendFileSync(output_dir+"/fuels.js",`\nvar ${fuel_arr} = [${fuel_arr_args}];\n\nexports.${class_name} = ${fuel_arr};\n\n`);
 
+    //---------------------------------------
+    */
+
     stmts.push(utils.str2ast(constants.ENTER_STR));
-    stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
+    var new_fuel_arr = freshVars.freshFuelArrVar();
+    for_stmts.unshift(utils.str2ast(`var ${fuel_var} = ${new_fuel_arr}[${index}]`));
+    stmts.push(TsASTFunctions.generateForStatement(new_fuel_arr, index, for_stmts));
+    control_vars.push(new_fuel_arr);
   }
 
   else {
