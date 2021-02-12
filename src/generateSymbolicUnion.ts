@@ -17,6 +17,10 @@ export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgra
   var unions = [];
   var control_vars = [];
   var control_nums = [];
+  var needs_for = false;
+  var fuel_arr:string;
+  var index:string;
+  var new_fuel_vars:string[] = [];
 
   //Union variable creation and declaration
   var union = freshVars.freshUnionVar();
@@ -34,6 +38,16 @@ export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgra
       control_nums = control_nums.concat(ret.control_num);
     }    
     symb_vars.push(ret.var);
+
+    if(ret["needs_for"]) {
+      needs_for = true;
+      fuel_arr = ret["fuel_var"];       //Fuel array used for the recursive construction
+      index = ret["index_var"];             //Index to access the positions of the fuel array
+    }
+
+    if(ret["new_fuel_vars"]) {
+      new_fuel_vars = new_fuel_vars.concat(ret["new_fuel_vars"]);
+    }
   
     //Union var assignment to one of the possible types
     union_str =`${union} = ${ret.var}`;
@@ -53,6 +67,7 @@ export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgra
     stmts:stmts,
     var: union, 
     control: control_vars,
-    control_num: control_nums
+    control_num: control_nums,
+    new_fuel_vars: new_fuel_vars
   }
 }

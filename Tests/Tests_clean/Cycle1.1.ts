@@ -11,6 +11,6 @@ class Animalx{
     }
 }
 
-function sumOfAnimalsAge(x:Animalx, y:Animalx) : number {
-    return x.age + y.age;
+function sumOfAnimalsAge(x:Animalx, y:Animalx, z:Animalx) : number {
+    return x.age + y.age + z.age;
 }
