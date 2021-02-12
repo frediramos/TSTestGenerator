@@ -43,47 +43,6 @@ function generateConstructorTests<ts_type>(class_name:string, program_info:IProg
 
   if(needs_for) {
 
-    //Combinations------------------------------------------------
-    /*
-    var all_cases = [];
-    var all_combinations = [];
-    var fuel_vars = [];
-    var cases = [];
-    var combinations = [];
-    var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
-
-    for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
-      cases = [];
-      for (var j=0;j<max_constructors_recursive_objects;j++) {
-        cases.push(j+1);
-      }
-
-      all_cases.push(cases);
-      
-      combinations = utils.createCombinations(all_cases);
-      all_combinations = all_combinations.concat(combinations);
-    }
-    
-    var selected_combination;
-    var fuel_var;
-    for(var i = 0; i<20; i++){
-      selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
-      fuel_var = freshVars.freshFuelVar();
-      fs.appendFileSync(output_dir+"/fuels.js",`var ${fuel_var} = [${all_combinations[selected_combination]}];\n`);
-      fuel_vars.push(fuel_var);
-    }
-
-    //Creates a string with the arguments in parameters format, for example "x_1, x_2"
-    var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
-      if (cur_str === "") return prox; 
-      else return cur_str + ", " + prox; 
-    },"");
-
-    fs.appendFileSync(output_dir+"/fuels.js",`\nvar ${fuel_arr} = [${fuel_arr_args}];\n\nexports.${class_name} = ${fuel_arr};\n\n`);
-
-    //---------------------------------------
-    */
-
     stmts.push(utils.str2ast(constants.ENTER_STR));
     var new_fuel_arr = freshVars.freshFuelArrVar();
     for_stmts.unshift(utils.str2ast(`var ${fuel_var} = ${new_fuel_arr}[${index}]`));
@@ -111,44 +70,41 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   var control_vars = [];
   var control_nums = [];
   var method_info = program_info.getClassMethodInfo(class_name, method_name);
-  var for_stmts = [];
   var needs_for = false;
-  var fuel_arr:string;
+  var new_fuel_vars:string[] = [];
   var index:string;
   
-  for_stmts.push(utils.str2ast(constants.ENTER_STR));
+  stmts.push(utils.str2ast(constants.ENTER_STR));
 
   //Creation of the object where the method will be tested
   var ret_obj;
   if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
     ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name, program_info);
     needs_for = true;
-    fuel_arr = ret_obj["fuel_var"];
-    index = ret_obj["index_var"];
+    new_fuel_vars.push(ret_obj["fuel_var"]);
   }
 
   else {
     ret_obj = generateSymbolicObjects.createObjectCall(class_name, program_info);
   }
 
-  for_stmts = for_stmts.concat(ret_obj.stmts);
+  stmts = stmts.concat(ret_obj.stmts);
   //Checks if any argument has more than one possible value
   if(ret_obj.control[0]!==undefined){
     control_vars = control_vars.concat(ret_obj.control);
     control_nums = control_nums.concat(ret_obj.control_num);
   }
 
-  for_stmts.push(utils.str2ast(constants.ENTER_STR));
+  stmts.push(utils.str2ast(constants.ENTER_STR));
   
   //Creates the arguments of the method
   var ret_args = generateSymbolicTypes.createArgSymbols(method_info.arg_types,program_info);
-  for_stmts = for_stmts.concat(ret_args.stmts);
+  stmts = stmts.concat(ret_args.stmts);
 
   //Checks if any argument needs recursive construction
   if(ret_args["needs_for"]) {
     needs_for = true;
-    fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
-    index = ret_args["index_var"];             //Index to access the positions of the fuel array
+    new_fuel_vars = new_fuel_vars.concat(ret_args["fuel_var"]);       //Fuel array used for the recursive construction
   }
 
   //Checks if any argument has more than one possible value
@@ -161,15 +117,16 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   var x = freshVars.freshXVar();
   var ret_str = `var ${x} = ${ret_obj.var}.${method_name}(${ret_args.vars_str})`;
   var ret_ast = utils.str2ast(ret_str);
-  for_stmts.push(ret_ast);
+  stmts.push(ret_ast);
 
   //Creates the assertion of the variable with the method's return type to the expected return type
   var ret_asrt = generateTypesAssertions.generateFinalAsrt(method_info.ret_type,x,program_info);
-  for_stmts = for_stmts.concat(ret_asrt.stmt);
-  for_stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
+  stmts = stmts.concat(ret_asrt.stmt);
+  stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
 
-  for_stmts.push(utils.str2ast(constants.ENTER_STR)); 
+  stmts.push(utils.str2ast(constants.ENTER_STR)); 
 
+  /*
   if(needs_for) {
     var all_cases = [];
     var all_combinations = [];
@@ -219,12 +176,22 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
       stmts.push(for_stmts[i]);
     }
   }
+  */
 
-  return {
-    stmt: TsASTFunctions.createFunctionDeclaration("test"+method_number_test+"_"+method_name,stmts,control_vars),
-    control: control_vars,
-    control_num: control_nums
+  var rets = [];
+  method_name = "test"+method_number_test+"_"+method_name;
+  if(new_fuel_vars.length>0) {
+      rets.push(createWrapperEnumeratorTest(new_fuel_vars.length, control_vars.length, control_nums, method_name));
   }
+
+  var params = new_fuel_vars.concat(control_vars);
+  rets.push ({
+     stmt: TsASTFunctions.createFunctionDeclaration(method_name+"_single",stmts,params),
+     control: control_vars,
+     control_num: control_nums
+  })
+
+  return rets
 }
 
 
@@ -239,8 +206,6 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var fuel_arr:string;
   var index:string;
   var new_fuels_vars:string[] = [];
-  var rets = [];
-  var func_name = "test"+fun_number_test+"_"+fun_name;
 
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
@@ -261,6 +226,8 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
     control_nums = control_nums.concat(ret_args.control_num);
   }
 
+  var rets = [];
+  var func_name = "test"+fun_number_test+"_"+fun_name;
   if(ret_args.new_fuel_vars.length>0) {
     new_fuels_vars = ret_args.new_fuel_vars;
     rets.push(createWrapperEnumeratorTest(new_fuels_vars.length, control_vars.length, control_nums, func_name));
@@ -544,52 +511,19 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       curr_test += comment+"\n";
 
       //Generates the method's test function
-      var ret = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
-      tests.push(ret.stmt);
-      curr_test += utils.ast2str(ret.stmt)+"\n";
+      var rets = generateMethodTest(class_name,method_name,number_test[method_name],program_info);
+      
+      var methods_str = rets.map(function(ret){
+        tests.push(ret.stmt);
+        return utils.ast2str(ret.stmt);
+      }).join("\n");
+      
+      curr_test += methods_str;
 
       tests.push(utils.str2ast(constants.ENTER_STR));
 
-      //It will generate an array with the multiple options that each function will have for their switch statement(s), if they exist
-      all_cases = [];
-      for(var i = 0; i<ret.control.length; i++){
-        cases = [];
-        for (var j=0;j<ret.control_num[i];j++){
-          cases.push(j+1);
-        }
-        all_cases.push(cases);
-      }
-  
-      var method_call_str;
-      var method_call;
-
-      //Generates the combinations that will be the arguments when calling the method's test function
-      if(all_cases.length>0){
-        combinations = utils.createCombinations(all_cases);
-        //For each combination it will generate a call to the method test function
-        for(var i = 0;i<combinations.length;i++){
-          method_call_str = "test"+number_test[method_name]+"_"+method_name+"("+combinations[i]+");";
-          method_call = utils.str2ast(method_call_str);
-          tests.push(method_call);
-          curr_test += "\n"+method_call_str;
-          tests.push(utils.str2ast(constants.ENTER_STR)); 
-        }
-      }
-      
-      //If there is only one case it will generate the call to the method's test function without arguments
-      else{
-        method_call_str = "test"+number_test[method_name]+"_"+method_name+"();"
-        method_call = utils.str2ast(method_call_str);
-        tests.push(method_call);
-        curr_test += "\n"+method_call_str;
-        tests.push(utils.str2ast(constants.ENTER_STR)); 
-      }
-
       //It will write the method's test in a file inside the TS file test directory
       fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
-
-      fun_names[num_fun] = method_call_str;
-      num_fun++;
     });
   });
 

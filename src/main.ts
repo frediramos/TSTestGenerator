@@ -4,7 +4,7 @@ import tg = require("./testGenerator");
 const { execSync } = require("child_process");
 
 //Deleting the directory for the function's tests if it exists
-var tests_dir = "Test_"+process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0];
+var tests_dir = "Test_"+process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(/\.(?=[^\.]+$)/)[0];
 var command_tests_dir = "rm -rf "+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;

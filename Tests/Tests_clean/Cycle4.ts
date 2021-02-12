@@ -13,5 +13,5 @@ class Person {
 }
 
 
-function Hello(A:Animal, B:Person) {
+function Hello(A:Animal, B:Person, C:number|string) {
 }
