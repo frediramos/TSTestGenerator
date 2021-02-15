@@ -203,8 +203,8 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
   
     //In case there is more than one constructor it will use the value popped of the fuel var in the switch statement
     var control_arr_var:string = freshVars.freshControlArrVar();
-    var fuel_pop_str:string = `var ${control_arr_var} = ${fuel_var}.pop();`
-    stmts.push(utils.str2ast(fuel_pop_str));
+    var fuel_dec_str:string = `${fuel_var}--;`
+    stmts.push(utils.str2ast(fuel_dec_str));
     
     //Generation of all the construction cases, one for each constructor that the object has
     for(var i=0; i<class_constructors.length; i++){
@@ -225,16 +225,17 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
       objs.push(TsASTFunctions.generateBlock(case_stmts));
     }
 
+    var control_obj = freshVars.freshControlObjVar();
+    control_vars.unshift(control_obj);
+    control_nums.unshift(class_constructors.length);
+
     for(var i = 0; i < control_vars.length; i++) {
-      var control_var_declaration = TsASTFunctions.createControlVarDeclr(i+1, control_arr_var, control_vars[i]);
+      var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
       stmts.push(control_var_declaration);
     }
 
-    control_nums.push(class_constructors.length);
-    control_vars.unshift(fuel_var);
-
     //Creates the switch statement that will have all the possible constructions
-    var switch_stmt = TsASTFunctions.createSwitchStmtIndex0(control_arr_var, objs);
+    var switch_stmt = TsASTFunctions.createSwitchStmtWrapper(control_obj, objs);
     stmts.push(switch_stmt);
 
     return {

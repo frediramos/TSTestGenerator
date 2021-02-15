@@ -94,8 +94,6 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
     control_vars = control_vars.concat(ret_obj.control);
     control_nums = control_nums.concat(ret_obj.control_num);
   }
-
-  stmts.push(utils.str2ast(constants.ENTER_STR));
   
   //Creates the arguments of the method
   var ret_args = generateSymbolicTypes.createArgSymbols(method_info.arg_types,program_info);
@@ -124,69 +122,20 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   stmts = stmts.concat(ret_asrt.stmt);
   stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
 
-  stmts.push(utils.str2ast(constants.ENTER_STR)); 
-
-  /*
-  if(needs_for) {
-    var all_cases = [];
-    var all_combinations = [];
-    var fuel_vars = [];
-    var cases = [];
-    var combinations = [];
-    var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
-
-    for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
-      cases = [];
-      for (var j=0;j<max_constructors_recursive_objects;j++) {
-        cases.push(j+1);
-      }
-
-      all_cases.push(cases);
-      
-      combinations = utils.createCombinations(all_cases);
-      all_combinations = all_combinations.concat(combinations);
-    }
-    
-    var selected_combination;
-    var fuel_var;
-    for(var i = 0; i<20; i++){
-      stmts.push(utils.str2ast(constants.ENTER_STR));
-      selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
-      fuel_var = freshVars.freshFuelVar();
-      stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
-      fuel_vars.push(fuel_var);
-    }
-
-    //Creates a string with the arguments in parameters format, for example "x_1, x_2"
-    var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
-      if (cur_str === "") return prox; 
-      else return cur_str + ", " + prox; 
-    },"");  
-
-    stmts.push(utils.str2ast(constants.ENTER_STR));
-    stmts.push(utils.str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
-
-    stmts.push(utils.str2ast(constants.ENTER_STR));
-    stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
-    stmts.push(utils.str2ast(constants.ENTER_STR));
+  for(var i = 0; i < control_vars.length; i++) {
+    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+    stmts.unshift(control_var_declaration);
   }
 
-  else {
-    for(var i = 0; i<for_stmts.length; i++) {
-      stmts.push(for_stmts[i]);
-    }
+  for(var i = 0; i < new_fuel_vars.length; i++) {
+    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+    stmts.unshift(fuel_var_declaration);
   }
-  */
 
   var rets = [];
   method_name = "test"+method_number_test+"_"+method_name;
-  if(new_fuel_vars.length>0) {
-      rets.push(createWrapperEnumeratorTest(new_fuel_vars.length, control_vars.length, control_nums, method_name));
-  }
-
-  var params = new_fuel_vars.concat(control_vars);
   rets.push ({
-     stmt: TsASTFunctions.createFunctionDeclaration(method_name+"_single",stmts,params),
+     stmt: TsASTFunctions.createFunctionDeclaration(method_name,stmts,[]),
      control: control_vars,
      control_num: control_nums
   })
@@ -205,7 +154,7 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var needs_for = false;
   var fuel_arr:string;
   var index:string;
-  var new_fuels_vars:string[] = [];
+  var new_fuel_vars:string[] = [];
 
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
@@ -214,23 +163,15 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   stmts=stmts.concat(ret_args.stmts);
 
   //Checks if any argument needs recursive construction
-  /*if(ret_args["needs_for"]) {
+  if(ret_args["needs_for"]) {
     needs_for = true;
-    fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
-    index = ret_args["index_var"];             //Index to access the positions of the fuel array
-  }*/
+    new_fuel_vars = new_fuel_vars.concat(ret_args["fuel_var"]);       //Fuel array used for the recursive construction
+  }
   
   //Checks if any argument has more than one possible value
   if(ret_args.control[0]!==undefined){
     control_vars = control_vars.concat(ret_args.control);
     control_nums = control_nums.concat(ret_args.control_num);
-  }
-
-  var rets = [];
-  var func_name = "test"+fun_number_test+"_"+fun_name;
-  if(ret_args.new_fuel_vars.length>0) {
-    new_fuels_vars = ret_args.new_fuel_vars;
-    rets.push(createWrapperEnumeratorTest(new_fuels_vars.length, control_vars.length, control_nums, func_name));
   }
    
   //Creates the function call and places the return value in a variable 
@@ -243,63 +184,21 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var ret_asrt = generateTypesAssertions.generateFinalAsrt(function_info.ret_type,x,program_info);
   stmts = stmts.concat(ret_asrt.stmt);
   stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
-  stmts.push(utils.str2ast(constants.ENTER_STR)); 
-/*
-  if(needs_for) {
-    var all_cases = [];
-    var all_combinations = [];
-    var fuel_vars = [];
-    var cases = [];
-    var combinations = [];
-    var max_constructors_recursive_objects = program_info.getMaxConstructorsRecursiveObjects();
-
-    for(var i = 0; i<constants.FUEL_VAR_DEPTH; i++) {
-      cases = [];
-      for (var j=0;j<max_constructors_recursive_objects;j++) {
-        cases.push(j+1);
-      }
-
-      all_cases.push(cases);
-      
-      combinations = utils.createCombinations(all_cases);
-      all_combinations = all_combinations.concat(combinations);
-    }
-    
-    var selected_combination;
-    var fuel_var;
-    for(var i = 0; i<20; i++){
-      stmts.push(utils.str2ast(constants.ENTER_STR));
-      selected_combination = Math.floor(Math.random() * (all_combinations.length - 1));
-      fuel_var = freshVars.freshFuelVar();
-      stmts.push(utils.str2ast(`var ${fuel_var} = [${all_combinations[selected_combination]}]`));
-      fuel_vars.push(fuel_var);
-    }
-
-    //Creates a string with the arguments in parameters format, for example "x_1, x_2"
-    var fuel_arr_args = fuel_vars.reduce(function (cur_str, prox) {
-      if (cur_str === "") return prox; 
-      else return cur_str + ", " + prox; 
-    },"");  
-
-    stmts.push(utils.str2ast(constants.ENTER_STR));
-    stmts.push(utils.str2ast(`var ${fuel_arr} = [${fuel_arr_args}]`));
-
-    stmts.push(utils.str2ast(constants.ENTER_STR));
-    stmts.push(TsASTFunctions.generateForStatement(fuel_arr, index, for_stmts));
-    stmts.push(utils.str2ast(constants.ENTER_STR));
+  
+  for(var i = 0; i < control_vars.length; i++) {
+    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+    stmts.unshift(control_var_declaration);
   }
 
-
-  else {
-    for(var i = 0; i<for_stmts.length; i++) {
-      stmts.push(for_stmts[i]);
-    }
+  for(var i = 0; i < new_fuel_vars.length; i++) {
+    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+    stmts.unshift(fuel_var_declaration);
   }
-*/
-  var params = new_fuels_vars.concat(control_vars);
 
+  var rets = [];
+  var func_name = "test"+fun_number_test+"_"+fun_name;
   rets.push ({
-    stmt: TsASTFunctions.createFunctionDeclaration(func_name+"_single",stmts,params),
+    stmt: TsASTFunctions.createFunctionDeclaration(func_name,stmts, []),
     control: control_vars,
     control_num: control_nums
   })

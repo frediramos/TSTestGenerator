@@ -16,40 +16,36 @@ export function func_expr2func_decl (fun_name:string, func_expr){
   }
 
 //::::::::This function generates the if statement that checks if the fuel var is empty or not::::::::
+/*
+	if (fuel_1 === 0)
+		return null;
+*/
 export function generateIfFuelStatement(fuel_var:string){
   return {
     type: "IfStatement",
-    test: {
-      type: "BinaryExpression",
-      operator: "===",
-      left: {
-        type: "MemberExpression",
-        computed: false,
-        object: {
+      test: {
+        type: "BinaryExpression",
+        operator: "===",
+        left: {
           type: "Identifier",
           name: fuel_var
         },
-        property: {
-          type: "Identifier",
-          name: "length"
+        right: {
+          type: "Literal",
+          value: 0,
+          raw: "0"
         }
       },
-      right: {
-        type: "Literal",
-        value: 0,
-        raw: "0"
-      }
-    },
-    consequent: {
-      type: "ReturnStatement",
+      consequent: {
+        type: "ReturnStatement",
       argument: {
-        type: "Literal",
-        value: null,
-        raw: "null"
-      }
-    },
-    alternate: null
-  }
+          type: "Literal",
+          value: null,
+          raw: "null"
+        }
+      },
+      alternate: null
+    }
 }
 
 //::::::::This function generates the call of a return statement given a class and its arguments::::::::
@@ -308,20 +304,11 @@ function createSwitchStmt (discriminant, blocks) {
 }
 
 //::::::::This function creates a switch statement::::::::
-export function createSwitchStmtIndex0 (control_arr:string, blocks) {  
+export function createSwitchStmtWrapper (control_var:string, blocks) {  
 
   var discriminant = {
-    type: "MemberExpression",
-    computed: true,
-    object: {
-      type: "Identifier",
-      name: control_arr
-    },
-    property: {
-      type: "Literal",
-      value: 0,
-      raw: "0"
-    }
+    type: "Identifier",
+    name: control_var
   }
 
   return createSwitchStmt(discriminant, blocks);
@@ -347,7 +334,7 @@ export function generateBlock(stmts) {
 }
 
 //::::::::This function creates a control var declaration::::::::
-export function createControlVarDeclr(index:number, control_arr_var:string, control_var:string) {
+export function createControlVarDeclr(control_var:string, control_num:number) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -358,17 +345,48 @@ export function createControlVarDeclr(index:number, control_arr_var:string, cont
           name: control_var
         },
         init: {
-          type: "MemberExpression",
-          computed: true,
-          object: {
+          type: "CallExpression",
+          callee: {
             type: "Identifier",
-            name: control_arr_var
+            name: "choice"
           },
-          property: {
-            type: "Literal",
-            value: index,
-            raw: index+""
-          }
+          arguments: [
+            {
+              type: "Literal",
+              value: control_num,
+              raw: control_num+""
+            }
+          ]
+        }
+      }
+    ],
+    kind: "var"
+  }
+}
+
+//::::::::This function creates a control var declaration::::::::
+export function createFuelVarDeclr(fuel_var:string) {
+  return {
+    type: "VariableDeclaration",
+    declarations: [
+      {
+        type: "VariableDeclarator",
+        id: {
+          type: "Identifier",
+          name: fuel_var
+        },
+        init: {
+          type: "CallExpression",
+          callee: {
+            type: "Identifier",
+            name: "choice"
+          },
+          arguments: [
+            {
+              type: "Identifier",
+              name: "fuel"
+            }
+          ]
         }
       }
     ],
