@@ -12,54 +12,13 @@ import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
 
 //::::::::This function generates the call of all the constructors of a class::::::::
-function generateConstructorTests<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>, output_dir:string){
-  var stmts = [];
-  var control_vars = [];
-  var control_nums = [];
-  var needs_for = false;
-  var for_stmts = [];
-  var fuel_var:string;
-  var index:string;
+function generateConstructorTests<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
   
   //Creation of the object
-  var ret_obj;
   if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
-    ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name, program_info);
-    needs_for = true;
-    fuel_var = ret_obj["fuel_var"];
-    index = ret_obj["index_var"];
-  }
-
-  else {
-    ret_obj = generateSymbolicObjects.createObjectCall(class_name, program_info);
-  }
-
-  for_stmts = for_stmts.concat(ret_obj.stmts);
-  //Checks if the object construction has more than one possible value for their arguments
-  if(ret_obj.control[0]!==undefined){
-    control_vars = control_vars.concat(ret_obj.control);
-    control_nums = control_nums.concat(ret_obj.control_num);
-  }
-
-  if(needs_for) {
-
-    stmts.push(utils.str2ast(constants.ENTER_STR));
-    var new_fuel_arr = freshVars.freshFuelArrVar();
-    for_stmts.unshift(utils.str2ast(`var ${fuel_var} = ${new_fuel_arr}[${index}]`));
-    stmts.push(TsASTFunctions.generateForStatement(new_fuel_arr, index, for_stmts));
-    control_vars.push(new_fuel_arr);
-  }
-
-  else {
-    for(var i = 0; i<for_stmts.length; i++) {
-      stmts.push(for_stmts[i]);
-    }
-  }
-  
-  return {
-    stmt:TsASTFunctions.createFunctionDeclaration("test_"+class_name+"_constructors",stmts,control_vars),
-    control: control_vars,
-    control_num: control_nums
+    return utils.str2ast(`create${class_name}(${constants.CHOICE_STR}(${constants.FUEL_STR}));`);
+  } else {
+    return utils.str2ast(`create${class_name}();`);
   }
 }
 
@@ -72,7 +31,6 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   var method_info = program_info.getClassMethodInfo(class_name, method_name);
   var needs_for = false;
   var new_fuel_vars:string[] = [];
-  var index:string;
   
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
@@ -341,53 +299,13 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     curr_test += comment+"\n";
 
     //Generation of the constructors tests
-    var ret = generateConstructorTests(class_name, program_info, output_dir);
-    tests.push(ret.stmt);
-    curr_test+=utils.ast2str(ret.stmt)+"\n";
+    var stmt = generateConstructorTests(class_name, program_info);
+    curr_test+=utils.ast2str(stmt)+"\n";
 
     tests.push(utils.str2ast(constants.ENTER_STR));
 
-    //It will generate an array with the multiple options that each function will have for their switch statement(s), if they exist
-    all_cases = [];
-    for(var i = 0; i<ret.control.length; i++){
-      cases = [];
-      for (var j=0;j<ret.control_num[i];j++){
-        cases.push(j+1);
-      }
-      all_cases.push(cases);
-    }
-
-    var constructor_call_str;
-    var constructor_call;
-
-    //Generates the combinations that will be the arguments when calling the constructor's test function
-    if(all_cases.length>0){
-      combinations = utils.createCombinations(all_cases);
-      
-      //For each combination it will generate a call to the constructor's test function
-      for(var i = 0;i<combinations.length;i++){
-        constructor_call_str = "test_"+class_name+"_constructors("+combinations[i]+");";
-        constructor_call = utils.str2ast(constructor_call_str);
-        tests.push(constructor_call);
-        curr_test += "\n"+constructor_call_str;
-        tests.push(utils.str2ast(constants.ENTER_STR)); 
-      }
-    }
-
-    //If there is only one case it will generate the call to the constructor's test function without arguments
-    else{
-      constructor_call_str = "test_"+class_name+"_constructors();";
-      constructor_call = utils.str2ast(constructor_call_str);
-      tests.push(constructor_call);
-      curr_test += "\n"+constructor_call_str;
-      tests.push(utils.str2ast(constants.ENTER_STR)); 
-    }
-
     //It will write the constructor's test in a file inside the TS file test directory
     fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
-
-    fun_names[num_fun] = constructor_call_str;
-    num_fun++;
   });
 
   var methods_info = program_info.getMethodsInfo();

@@ -201,9 +201,6 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
     var stmts = []; 
     var control_vars = [];
     var control_nums = [];
-    var needs_for = false;
-    var fuel_arr:string;
-    var index:string;
     var new_fuel_vars:string[] = [];
 
     //For each type in the arg_types array generates the variable of the respective type
@@ -217,12 +214,6 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
       if(ret.control!==undefined){
         control_vars = control_vars.concat(ret.control);   
         control_nums = control_nums.concat(ret.control_num);
-      }
-
-      if(ret["needs_for"]) {
-        needs_for = true;
-        fuel_arr = ret["fuel_var"];       //Fuel array used for the recursive construction
-        index = ret["index_var"];             //Index to access the positions of the fuel array
       }
 
       if(ret["new_fuel_vars"]) {

@@ -9,3 +9,7 @@ export const ENTER_STR = "$Enter$()";
 export const SPACE_STR = "$Space$";
 export const COLONS_STR = "$Colons$";
 export const APOSTROPHE_STR = "$Apostrophe$";
+
+//Constant for the fuel var name as argument
+export const CHOICE_STR = "choice";
+export const FUEL_STR = "fuel";

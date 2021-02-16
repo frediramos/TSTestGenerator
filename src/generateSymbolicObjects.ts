@@ -9,53 +9,6 @@ function getCreateMethodName(class_name:string):string{
     return "create"+class_name;
 }
 
-function checkObjectInfo<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>) {
-  var control_vars:string[] = [];
-  var control_nums:number[] = [];
-  var needs_for:boolean = false;
-  var fuel_arr:number[] = [];
-  var index:string;
-
-  var constructor_info = program_info.getClassConstructorsInfo(class_name);
-  if(constructor_info.length > 1) {
-    var control_var:string = freshVars.freshControlObjVar(); 
-    control_vars.push(control_var);
-    control_nums.push(constructor_info.length);
-  }
-
-  for(var i=0; i<constructor_info.length; i++) {
-    var ret_args = generateSymbolicTypes.createArgSymbols(constructor_info[i].arg_types, program_info);
-  
-    //Checks if any argument has more than one possible value
-    if(ret_args.control[0]!==undefined){
-      control_vars = control_vars.concat(ret_args.control);
-      control_nums = control_nums.concat(ret_args.control_num);
-    }
-  
-    //Checks if any argument needs recursive construction
-    if(ret_args["needs_for"]) {
-      needs_for = true;
-      fuel_arr = ret_args["fuel_var"];       //Fuel array used for the recursive construction
-      index = ret_args["index_var"];             //Index to access the positions of the fuel array
-    }
-  }
-
-  //Creates a string with the arguments in parameters format, for example "x_1, x_2"
-  var create_control_args_str = control_vars.reduce(function (cur_str, prox) {
-    if (cur_str === "") return prox; 
-    else return cur_str + ", " + prox; 
-  },"");
-
-  return {
-    control_vars: control_vars,
-    control_nums: control_nums,
-    needs_for: needs_for,
-    fuel_arr: fuel_arr,
-    index: index,
-    create_control_args_str: create_control_args_str
-  }
-}
-
 function createControlArgs(control_num:number):string[] {
   var args:string[] = [];
   for(var i = 0; i < control_num; i++) {
@@ -68,35 +21,24 @@ function createControlArgs(control_num:number):string[] {
 export function createObjectCall<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>) {
   var obj_var:string = freshVars.freshObjectVar();
 
-  //var arguments_info = checkObjectInfo(class_name, program_info);
-
-  var control_nums = program_info.getCreateInfo(class_name);
-  var control_vars = createControlArgs(control_nums.length);
-
-  var control_vars_str = control_vars.join(", ");
-  var call = `var ${obj_var} = ${getCreateMethodName(class_name)}(${control_vars_str});`;
+  var call = `var ${obj_var} = ${getCreateMethodName(class_name)}();`;
 
   return {
     stmts: [utils.str2ast(call)],
     var: obj_var,
-    control: control_vars,
-    control_num: control_nums,
-    needs_for: false,
-    fuel_var: [],
-    index_var: []
+    control: [],
+    control_num: [],
+    fuel_var: ""
   }
 }
 
 //::::::::This function generates the call of a constructor recursively with symbolic parameters::::::::
 export function createObjectRecursiveCall<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>, fuel_var?:string){
     var recurs_obj_var:string = freshVars.freshObjectVar();
-    var index:string = freshVars.freshIndexVar();
     
     var new_fuel_vars = [];
     var fuel_var_str:string;
     if(!fuel_var){
-      //var fuel_var = freshVars.freshFuelArrVar();
-      //fuel_var_str = `${fuel_var}[${index}]`;
       var fuel_var = freshVars.freshFuelVar();
       new_fuel_vars.push(fuel_var);
       fuel_var_str = fuel_var;
@@ -112,9 +54,6 @@ export function createObjectRecursiveCall<ts_type>(class_name:string, program_in
       var: recurs_obj_var,
       control: [],
       control_num: [],
-      needs_for: true,
-      fuel_var: fuel_var,
-      index_var: index,
       new_fuel_vars: new_fuel_vars
     }
 }
@@ -397,8 +336,6 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
     symb_vars = symb_vars.concat(ret.vars);
     //Checks if any argument has more than one possible value
     if(ret.control!==undefined){
-      //control_vars = control_vars.concat(ret.control);
-      //control_nums = control_nums.concat(ret.control_num);
       var subst = updateGlobalControlVars(control_vars, ret.control);
       updateGlobalControlNums(control_nums, ret.control_num);
     }
@@ -422,13 +359,18 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
   
   //If it has only one constructor, it will only use the object var assignment already made
   else {
-    stmts.push(objs[0]);
+    stmts = objs[0].body;
+  }
+
+  for(var i = 0; i < control_vars.length; i++) {
+    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+    stmts.unshift(control_var_declaration);
   }
 
   return {
-    func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name), stmts, control_vars),
-    control_vars: control_vars,
-    control_nums: control_nums,
+    func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name), stmts, []),
+    control_vars: [],
+    control_nums: [],
     fuel: 0
   }
 }
