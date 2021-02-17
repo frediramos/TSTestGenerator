@@ -29,7 +29,6 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   var control_vars = [];
   var control_nums = [];
   var method_info = program_info.getClassMethodInfo(class_name, method_name);
-  var needs_for = false;
   var new_fuel_vars:string[] = [];
   
   stmts.push(utils.str2ast(constants.ENTER_STR));
@@ -38,8 +37,7 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   var ret_obj;
   if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
     ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name, program_info);
-    needs_for = true;
-    new_fuel_vars.push(ret_obj["fuel_var"]);
+    new_fuel_vars.push(ret_obj["new_fuel_vars"]);
   }
 
   else {
@@ -58,9 +56,8 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   stmts = stmts.concat(ret_args.stmts);
 
   //Checks if any argument needs recursive construction
-  if(ret_args["needs_for"]) {
-    needs_for = true;
-    new_fuel_vars = new_fuel_vars.concat(ret_args["fuel_var"]);       //Fuel array used for the recursive construction
+  if(ret_args["new_fuel_vars"]) {
+    new_fuel_vars = new_fuel_vars.concat(ret_args["new_fuel_vars"]);       //Fuel array used for the recursive construction
   }
 
   //Checks if any argument has more than one possible value
@@ -108,10 +105,6 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var control_vars = [];
   var control_nums = [];
   var function_info=program_info.getFunctionInfo(fun_name);
-  var for_stmts = [];
-  var needs_for = false;
-  var fuel_arr:string;
-  var index:string;
   var new_fuel_vars:string[] = [];
 
   stmts.push(utils.str2ast(constants.ENTER_STR));
@@ -121,9 +114,8 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   stmts=stmts.concat(ret_args.stmts);
 
   //Checks if any argument needs recursive construction
-  if(ret_args["needs_for"]) {
-    needs_for = true;
-    new_fuel_vars = new_fuel_vars.concat(ret_args["fuel_var"]);       //Fuel array used for the recursive construction
+  if(ret_args["new_fuel_vars"]) {
+    new_fuel_vars = new_fuel_vars.concat(ret_args["new_fuel_vars"]);       //Fuel array used for the recursive construction
   }
   
   //Checks if any argument has more than one possible value
@@ -217,17 +209,13 @@ function createWrapperEnumeratorTest(fuel_vars_num:number, control_vars_num:numb
 
 //::::::::This fucntion is responsible for genarating the program tests::::::::
 export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,output_dir:string, js_file:string):string{
-  var fun_names = [];
-  var num_fun = 0;
   var tests = [];
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
   var constant_code_str:string = "";
-  var all_cases:number[][] = [];
-  var cases:number[];
-  var combinations;
+  var comment:string = ""
   var create_functions = {};
-  var fuels_constant_code:string = "";
+  var fuel_constant_code:string = "";
   var first_needs_fuel:boolean = true;
 
   var classes_info = program_info.getClassesInfo();
@@ -242,15 +230,18 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     }
 
     else {
-      if(first_needs_fuel) {
-        fuels_constant_code += `const fuels = require("fuels");\n\n`;
-        first_needs_fuel = false;
-      }
-      fuels_constant_code += `var ${class_name}_fuels = fuels.${class_name};\n`;
-
       var recursive_create_obj = generateSymbolicObjects.makeRecursiveCreateFunction(class_name,program_info);
       program_info.updateCreateInfo(class_name, recursive_create_obj.control_nums);
       create_functions[class_name] = recursive_create_obj;
+
+      if(first_needs_fuel) {
+        fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n`;
+        comment = "Comment1Functions"+constants.SPACE_STR+"used"+constants.SPACE_STR+"to"+constants.SPACE_STR+"create"+constants.SPACE_STR+"the"+constants.SPACE_STR+"objects"+"Comment2();";
+        tests.push(utils.str2ast(comment));
+        constant_code_str += comment+"\n";
+        first_needs_fuel = false;
+      }
+
       tests.push(recursive_create_obj.func);
       constant_code_str += utils.ast2str(recursive_create_obj.func)+"\n\n";
   
@@ -294,7 +285,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     else
       number_test[class_name]++;
 
-    var comment = "Comment1Test"+constants.SPACE_STR+"of"+constants.SPACE_STR+class_name+constants.APOSTROPHE_STR+"s"+constants.SPACE_STR+"constructors"+"Comment2();";
+    comment = "Comment1Test"+constants.SPACE_STR+"of"+constants.SPACE_STR+class_name+constants.APOSTROPHE_STR+"s"+constants.SPACE_STR+"constructors"+"Comment2();";
     tests.push(utils.str2ast(comment));
     curr_test += comment+"\n";
 
@@ -305,7 +296,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     tests.push(utils.str2ast(constants.ENTER_STR));
 
     //It will write the constructor's test in a file inside the TS file test directory
-    fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
+    fs.writeFileSync(output_dir+"/test_"+class_name+"_constructors.js",fuel_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
   });
 
   var methods_info = program_info.getMethodsInfo();
@@ -323,7 +314,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       else
         number_test[method_name]++;
       
-      var comment = "Comment1Test"+constants.SPACE_STR+"of"+constants.SPACE_STR+class_name+constants.APOSTROPHE_STR+"s"+constants.SPACE_STR+"method"+constants.COLONS_STR+method_name+"Comment2();";
+      comment = "Comment1Test"+constants.SPACE_STR+"of"+constants.SPACE_STR+class_name+constants.APOSTROPHE_STR+"s"+constants.SPACE_STR+"method"+constants.COLONS_STR+method_name+"Comment2();";
       tests.push(utils.str2ast(comment));
       curr_test += comment+"\n";
 
@@ -340,7 +331,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       tests.push(utils.str2ast(constants.ENTER_STR));
 
       //It will write the method's test in a file inside the TS file test directory
-      fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
+      fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",fuel_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
     });
   });
 
@@ -358,7 +349,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     else
       number_test[fun_name]++;
 
-    var comment = "Comment1Test"+constants.SPACE_STR+"of"+constants.SPACE_STR+"function"+constants.COLONS_STR+fun_name+"Comment2();";
+    comment = "Comment1Test"+constants.SPACE_STR+"of"+constants.SPACE_STR+"function"+constants.COLONS_STR+fun_name+"Comment2();";
     tests.push(utils.str2ast(comment));
     curr_test += comment+"\n";
 
@@ -373,46 +364,9 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     curr_test += functions_str;
 
     tests.push(utils.str2ast(constants.ENTER_STR));
-   
-    //It will generate an array with the multiple options that each function will have for their switch statement(s), if they exist
-    /*all_cases = [];
-    for(var i = 0; i<ret.control.length; i++){
-      cases = [];
-      for (var j=0;j<ret.control_num[i];j++){
-        cases.push(j+1);
-      }
-      all_cases.push(cases);
-    }
 
-    var fun_call_str;
-    var fun_call;
-    //Generates the combinations that will be the arguments when calling the function's test function
-    if(all_cases.length>0){
-      combinations = utils.createCombinations(all_cases);
-      //For each combination it will generate a call to the function test function
-      for(var i = 0;i<combinations.length;i++){
-        fun_call_str = "test"+number_test[fun_name]+"_"+fun_name+"("+combinations[i]+");";
-        fun_call = utils.str2ast(fun_call_str);
-        tests.push(fun_call);
-        curr_test += "\n"+fun_call_str;
-        tests.push(utils.str2ast(constants.ENTER_STR)); 
-      }
-    }
-
-    //If there is only one case it will generate the call to the method's test function without arguments
-    else{
-      fun_call_str = "test"+number_test[fun_name]+"_"+fun_name+"();"
-      fun_call = utils.str2ast(fun_call_str);
-      tests.push(fun_call);
-      curr_test += "\n"+fun_call_str;
-      tests.push(utils.str2ast(constants.ENTER_STR)); 
-    }
-    */
     //It will write the function's test in a file inside the TS file test directory
-    fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",fuels_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
-
-    //fun_names[num_fun]=fun_call_str;
-    num_fun++;
+    fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",fuel_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
   });
 
   var test_block = TsASTFunctions.generateBlock(tests);

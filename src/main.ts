@@ -42,7 +42,7 @@ var js_file = process.argv.slice(2)[0].substring(0, process.argv.slice(2)[0].las
 var file_code_comp:string;
 try {
     file_code_comp = fs.readFileSync(js_file, 'utf8');
-    file_code_comp = "/* \n=====Compiled Typescript file that is being tested=====\n*/\n\n"+file_code_comp;
+    file_code_comp = "/* \n=====Compiled Typescript file that is being tested=====\n*/\n"+file_code_comp;
 } catch(e) {
     console.log('Error:', e.stack);
 }

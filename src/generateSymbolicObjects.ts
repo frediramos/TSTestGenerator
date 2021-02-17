@@ -325,6 +325,7 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
   var objs = [];
   var control_vars:string[] = [];
   var control_nums:number[] = [];
+  var new_fuel_vars:string[] = [];
   var class_constructors = program_info.getClassConstructorsInfo(class_name);
 
   //Iterates over all the object constructors 
@@ -335,9 +336,13 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
     var ret = generateSymbolicTypes.createArgSymbols(class_constructors[i].arg_types,program_info);
     symb_vars = symb_vars.concat(ret.vars);
     //Checks if any argument has more than one possible value
-    if(ret.control!==undefined){
+    if(ret.control){
       var subst = updateGlobalControlVars(control_vars, ret.control);
       updateGlobalControlNums(control_nums, ret.control_num);
+    }
+
+    if(ret.new_fuel_vars){
+      new_fuel_vars = new_fuel_vars.concat(ret.new_fuel_vars);
     }
 
     //Generates the return statement for the object that was constructed
@@ -365,6 +370,11 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
   for(var i = 0; i < control_vars.length; i++) {
     var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
     stmts.unshift(control_var_declaration);
+  }
+
+  for(var i = 0; i < new_fuel_vars.length; i++) {
+    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+    stmts.unshift(fuel_var_declaration);
   }
 
   return {

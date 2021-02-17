@@ -16,12 +16,14 @@ export function createArrayOfType<ts_type>(arr_type:ts_type,program_info:IProgra
     var arr = freshVars.freshArrayVar();
     var arr_str = `var ${arr}`; 
     stmts.push(utils.str2ast(arr_str));
+    arr_str =`${arr} = []`;
+    arrays.push(utils.str2ast(arr_str));
   
     //Getting the type of the array 
     var arg_type = program_info.getTypeOfTheArray(arr_type);
   
     //Generation of the three possible arrays 
-    for(var i =0;i<constants.BRANCHING_LIMIT;i++){
+    for(var i = 0;i<constants.BRANCHING_LIMIT;i++){
       //Creation of a variable assignment that will be the variable placed in the array
       var ret = generateSymbolicTypes.createSymbAssignment(arg_type,program_info);
       
@@ -52,7 +54,7 @@ export function createArrayOfType<ts_type>(arr_type:ts_type,program_info:IProgra
     stmts.push(utils.str2ast(constants.ENTER_STR));
   
     control_vars.push(control_var);
-    control_nums.push(constants.BRANCHING_LIMIT);
+    control_nums.push(constants.BRANCHING_LIMIT+1);
     
     return {
       stmts:stmts,
