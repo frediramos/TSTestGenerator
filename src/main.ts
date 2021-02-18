@@ -2,7 +2,7 @@ import * as fs from "fs";
 import finder = require("./finder");
 import growers = require("./growers");
 import tg = require("./testGenerator");
-var path = require('path');
+import * as path from "path";
 const { execSync } = require("child_process");
 
 //Deleting the directory for the function's tests if it exists

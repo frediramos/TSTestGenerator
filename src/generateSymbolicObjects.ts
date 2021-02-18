@@ -163,16 +163,24 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
       }
   
       //Generates the return statement for the object that was constructed
-      var obj_var = freshVars.freshObjectVar();
-      var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
-      var case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
-  
-      var grow_call_str = `grow${class_name}(${obj_var});`;
+      var obj_ret;
+      var case_stmts = [];
+      if(program_info.getGrowers(class_name)) {
+        var obj_var = freshVars.freshObjectVar();
+        var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
+        case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
+    
+        var grow_call_str = `grow${class_name}(${obj_var});`;
+        
+        case_stmts = case_stmts.concat(utils.str2ast(grow_call_str))
+        obj_ret = TsASTFunctions.generateReturnVar(obj_var);
+
+        case_stmts = case_stmts.concat(obj_ret).map(utils.makeSubst(subst));
+      } else {
+        obj_ret = TsASTFunctions.generateReturnCall(class_name, ret.vars);
+        case_stmts = ret.stmts.concat(obj_ret).map(utils.makeSubst(subst));
+      }
       
-      case_stmts = case_stmts.concat(utils.str2ast(grow_call_str))
-      var obj_ret = TsASTFunctions.generateReturnVar(obj_var);
-      
-      case_stmts = case_stmts.concat(obj_ret).map(utils.makeSubst(subst));
       objs.push(TsASTFunctions.generateBlock(case_stmts));
     }
 
@@ -369,18 +377,22 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
     }
 
     //Generates the return statement for the object that was constructed
-    //var obj_ret = TsASTFunctions.generateReturnCall(class_name,ret.vars);
-
-    var obj_var = freshVars.freshObjectVar();
-    var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
-    var case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
-
-    var grow_call_str = `grow${class_name}(${obj_var});`;
-    
-    case_stmts = case_stmts.concat(utils.str2ast(grow_call_str))
-    var obj_ret = TsASTFunctions.generateReturnVar(obj_var);
-    
-    case_stmts = case_stmts.concat(obj_ret).map(utils.makeSubst(subst));
+    var obj_ret;
+    var case_stmts = [];
+    if(program_info.getGrowers(class_name)) {
+      var obj_var = freshVars.freshObjectVar();
+      var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
+      case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
+  
+      var grow_call_str = `grow${class_name}(${obj_var});`;
+      
+      case_stmts = case_stmts.concat(utils.str2ast(grow_call_str))
+      obj_ret = TsASTFunctions.generateReturnVar(obj_var);
+      case_stmts = case_stmts.concat(obj_ret).map(utils.makeSubst(subst));
+    } else {
+      obj_ret = TsASTFunctions.generateReturnCall(class_name, ret.vars);
+      case_stmts = ret.stmts.concat(obj_ret).map(utils.makeSubst(subst));
+    }
 
     objs.push(TsASTFunctions.generateBlock(case_stmts));
   }
