@@ -31,6 +31,7 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     cycles_hash : HashTable<string[][]> = {};
     max_constructors_recursive_objects:number = 0;
     create_functions_info: HashTable<number[]> = {};
+    growers_info: HashTable<string[]> = {};
 
 
     getClassesInfo() :  HashTable<ts.Type> {
@@ -192,13 +193,29 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     getCreateInfo(name:string) : number[] {
         return this.create_functions_info[name];
     }
+
+    getGrowers(class_name:string) : string[] {
+        return this.growers_info[class_name];
+    }
+
+    addClassGrower(class_name:string, method_name:string) : void {
+        if(this.growers_info[class_name]) {
+            this.growers_info[class_name].push(method_name);
+        } else {
+            this.growers_info[class_name] = [method_name];
+        }
+    }
+
+    showGrowers() : void {
+        console.log(this.growers_info);
+    }
 }
 
 //::::::::Function to set up for the traversation of the AST::::::::
-export function finder(fileNames:string[]):ProgramInfo {
+export function finder(filename:string):ProgramInfo {
 
     var prog_info = new ProgramInfo();  
-    const program = ts.createProgram(fileNames, { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS, strictNullChecks: true});
+    const program = ts.createProgram([filename], { target: ts.ScriptTarget.ES5, module: ts.ModuleKind.CommonJS, strictNullChecks: true});
     const checker = program.getTypeChecker();
     prog_info.Checker = checker; 
     const visitASTWithChecker = visitAST.bind(undefined, checker,prog_info);

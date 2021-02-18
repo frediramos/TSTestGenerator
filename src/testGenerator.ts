@@ -10,6 +10,7 @@ import * as generateSymbolicObjects from "./generateSymbolicObjects";
 import * as generateSymbolicInterface from "./generateSymbolicInterface";
 import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
+import * as growers from "./growers";
 
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
@@ -216,11 +217,19 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   var comment:string = ""
   var create_functions = {};
   var fuel_constant_code:string = "";
-  var first_needs_fuel:boolean = true;
+  var first_class:boolean = true;
 
   var classes_info = program_info.getClassesInfo();
   //Create functions generated for object recursive and non-recursive objects
   Object.keys(classes_info).forEach(function (class_name) {
+    if(first_class) {
+      fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n`;
+      comment = "Comment1Functions"+constants.SPACE_STR+"used"+constants.SPACE_STR+"to"+constants.SPACE_STR+"create/grow"+constants.SPACE_STR+"the"+constants.SPACE_STR+"objects"+"Comment2();";
+      tests.push(utils.str2ast(comment));
+      constant_code_str += comment+"\n";
+      first_class = false;
+    }
+
     if(!program_info.hasCycle(class_name)) {
       var create_obj = generateSymbolicObjects.makeNonRecursiveCreateFunction(class_name,program_info);
       program_info.updateCreateInfo(class_name, create_obj.control_nums);
@@ -234,14 +243,6 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       program_info.updateCreateInfo(class_name, recursive_create_obj.control_nums);
       create_functions[class_name] = recursive_create_obj;
 
-      if(first_needs_fuel) {
-        fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n`;
-        comment = "Comment1Functions"+constants.SPACE_STR+"used"+constants.SPACE_STR+"to"+constants.SPACE_STR+"create"+constants.SPACE_STR+"the"+constants.SPACE_STR+"objects"+"Comment2();";
-        tests.push(utils.str2ast(comment));
-        constant_code_str += comment+"\n";
-        first_needs_fuel = false;
-      }
-
       tests.push(recursive_create_obj.func);
       constant_code_str += utils.ast2str(recursive_create_obj.func)+"\n\n";
   
@@ -250,6 +251,15 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       if(program_info.getMaxConstructorsRecursiveObjects() < class_constructors.length)
         program_info.setMaxConstructorsRecursiveObjects(class_constructors.length);
     }
+
+    var class_growers_info = program_info.getGrowers(class_name);
+
+    var grower_obj = growers.generateGrower(class_name, class_growers_info);
+
+    tests.push(grower_obj.single);
+    constant_code_str += utils.ast2str(grower_obj.single)+"\n\n";
+    tests.push(grower_obj.wrapper);
+    constant_code_str += utils.ast2str(grower_obj.wrapper)+"\n\n";
   });
 
   tests.push(utils.str2ast(constants.ENTER_STR));

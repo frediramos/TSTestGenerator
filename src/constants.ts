@@ -13,3 +13,6 @@ export const APOSTROPHE_STR = "$Apostrophe$";
 //Constant for the fuel var name as argument
 export const CHOICE_STR = "choice";
 export const FUEL_STR = "fuel";
+
+//Constant for a default object
+export const OBJECT_STR = "obj";

@@ -133,6 +133,7 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
     var objs = [];
     var control_vars:string[] = [];
     var control_nums:number[] = [];
+    var new_fuel_vars:string[] = [];
     var class_constructors = program_info.getClassConstructorsInfo(class_name);
     
     //Creates the fuel var and the if statement at the beginning of the create function for objects with cyclic construction
@@ -141,7 +142,6 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
     stmts.push(if_has_fuel_ast);
   
     //In case there is more than one constructor it will use the value popped of the fuel var in the switch statement
-    var control_arr_var:string = freshVars.freshControlArrVar();
     var fuel_dec_str:string = `${fuel_var}--;`
     stmts.push(utils.str2ast(fuel_dec_str));
     
@@ -157,25 +157,48 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
         var subst = updateGlobalControlVars(control_vars, ret.control);
         updateGlobalControlNums(control_nums, ret.control_num);
       }
+
+      if(ret.new_fuel_vars){
+        new_fuel_vars = new_fuel_vars.concat(ret.new_fuel_vars);
+      }
   
       //Generates the return statement for the object that was constructed
-      var obj_ret = TsASTFunctions.generateReturnCall(class_name,ret.vars);
-      var case_stmts = ret.stmts.concat(obj_ret).map(utils.makeSubst(subst));
+      var obj_var = freshVars.freshObjectVar();
+      var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
+      var case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
+  
+      var grow_call_str = `grow${class_name}(${obj_var});`;
+      
+      case_stmts = case_stmts.concat(utils.str2ast(grow_call_str))
+      var obj_ret = TsASTFunctions.generateReturnVar(obj_var);
+      
+      case_stmts = case_stmts.concat(obj_ret).map(utils.makeSubst(subst));
       objs.push(TsASTFunctions.generateBlock(case_stmts));
     }
 
-    var control_obj = freshVars.freshControlObjVar();
-    control_vars.unshift(control_obj);
-    control_nums.unshift(class_constructors.length);
+    //Checks if the class has more than one constructor and if it has it will create a switch case for each of them
+    if(class_constructors.length>1) {
+      var control_var:string = freshVars.freshControlObjVar(); 
+      control_vars.unshift(control_var);
+      control_nums.unshift(class_constructors.length);
+      var switch_stmt = TsASTFunctions.createSwitchStmtVar(control_var, objs);
+      stmts.push(switch_stmt); 
+    }
+    
+    //If it has only one constructor, it will only use the object var assignment already made
+    else {
+      stmts = objs[0].body;
+    }
 
     for(var i = 0; i < control_vars.length; i++) {
       var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
       stmts.push(control_var_declaration);
     }
 
-    //Creates the switch statement that will have all the possible constructions
-    var switch_stmt = TsASTFunctions.createSwitchStmtWrapper(control_obj, objs);
-    stmts.push(switch_stmt);
+    for(var i = 0; i < new_fuel_vars.length; i++) {
+      var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+      stmts.unshift(fuel_var_declaration);
+    }
 
     return {
       func: TsASTFunctions.createFunctionDeclaration(getCreateMethodName(class_name),stmts,[fuel_var]),
@@ -346,9 +369,18 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
     }
 
     //Generates the return statement for the object that was constructed
-    var obj_ret = TsASTFunctions.generateReturnCall(class_name,ret.vars);
+    //var obj_ret = TsASTFunctions.generateReturnCall(class_name,ret.vars);
 
-    var case_stmts = ret.stmts.concat(obj_ret).map(utils.makeSubst(subst));
+    var obj_var = freshVars.freshObjectVar();
+    var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
+    var case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
+
+    var grow_call_str = `grow${class_name}(${obj_var});`;
+    
+    case_stmts = case_stmts.concat(utils.str2ast(grow_call_str))
+    var obj_ret = TsASTFunctions.generateReturnVar(obj_var);
+    
+    case_stmts = case_stmts.concat(obj_ret).map(utils.makeSubst(subst));
 
     objs.push(TsASTFunctions.generateBlock(case_stmts));
   }

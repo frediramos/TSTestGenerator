@@ -37,4 +37,8 @@ export interface IProgramInfo <ts_type>{
 
     updateCreateInfo(name:string, control_nums:number[]) : void;
     getCreateInfo(name:string) : number[];
+
+    getGrowers(class_name:string) : string[];
+    addClassGrower(class_name:string, method_name:string) : void;
+    showGrowers() : void;
 }

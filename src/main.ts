@@ -1,10 +1,15 @@
 import * as fs from "fs";
 import finder = require("./finder");
+import growers = require("./growers");
 import tg = require("./testGenerator");
+var path = require('path');
 const { execSync } = require("child_process");
 
 //Deleting the directory for the function's tests if it exists
-var tests_dir = "Test_"+process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(/\.(?=[^\.]+$)/)[0];
+var filename = process.argv[2];
+var growers_file = process.argv[3];
+
+var tests_dir = "Test_"+path.parse(filename).name;
 var command_tests_dir = "rm -rf "+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;
@@ -17,7 +22,12 @@ if (err) return;
 });
 
 //Retrieving the program information using the finder
-var prog_info:finder.ProgramInfo = finder.finder(process.argv.slice(2));
+var prog_info:finder.ProgramInfo = finder.finder(filename);
+
+//Stores the growers info in the program info structure
+growers.addGrowers(prog_info, growers_file);
+
+prog_info.showGrowers();
 
 //Checking for cyclic constructions
 var cycles =finder.findCycles(prog_info);
