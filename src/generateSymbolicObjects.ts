@@ -167,7 +167,7 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
       var case_stmts = [];
       if(program_info.getGrowers(class_name)) {
         var obj_var = freshVars.freshObjectVar();
-        var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
+        var obj_assignment_str = `var ${obj_var} = new ${class_name}(${ret.vars_str});`
         case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
     
         var grow_call_str = `grow${class_name}(${obj_var});`;
@@ -381,7 +381,7 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
     var case_stmts = [];
     if(program_info.getGrowers(class_name)) {
       var obj_var = freshVars.freshObjectVar();
-      var obj_assignment_str = `var ${obj_var} = ${class_name}(${ret.vars_str});`
+      var obj_assignment_str = `var ${obj_var} = new ${class_name}(${ret.vars_str});`
       case_stmts = ret.stmts.concat(utils.str2ast(obj_assignment_str));
   
       var grow_call_str = `grow${class_name}(${obj_var});`;

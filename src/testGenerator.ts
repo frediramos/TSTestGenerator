@@ -255,7 +255,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
     var class_growers_info = program_info.getGrowers(class_name);
 
     if(class_growers_info) {
-      var grower_obj = growers.generateGrower(class_name, class_growers_info);
+      var grower_obj = growers.generateGrower(class_name, class_growers_info, program_info);
   
       tests.push(grower_obj.single);
       constant_code_str += utils.ast2str(grower_obj.single)+"\n\n";

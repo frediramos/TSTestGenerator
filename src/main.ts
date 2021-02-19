@@ -27,8 +27,6 @@ var prog_info:finder.ProgramInfo = finder.finder(filename);
 //Stores the growers info in the program info structure
 growers.addGrowers(prog_info, growers_file);
 
-prog_info.showGrowers();
-
 //Checking for cyclic constructions
 var cycles =finder.findCycles(prog_info);
 

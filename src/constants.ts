@@ -16,3 +16,7 @@ export const FUEL_STR = "fuel";
 
 //Constant for a default object
 export const OBJECT_STR = "obj";
+
+//Constants for the growers functions prefix
+export const GROW_STR = "grow";
+export const SINGLE_GROW_STR = "singleGrow";
