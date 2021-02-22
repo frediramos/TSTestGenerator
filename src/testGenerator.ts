@@ -339,9 +339,13 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
         return utils.ast2str(ret.stmt);
       }).join("\n");
       
-      curr_test += methods_str;
+      curr_test += methods_str+"\n";
 
       tests.push(utils.str2ast(constants.ENTER_STR));
+
+      var method_test_call_str = `test${number_test[method_name]}_${method_name}();`
+      curr_test += method_test_call_str;
+      tests.push(utils.str2ast(method_test_call_str));
 
       //It will write the method's test in a file inside the TS file test directory
       fs.writeFileSync(output_dir+"/test"+number_test[method_name]+"_"+method_name+".js",fuel_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
@@ -374,9 +378,13 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
       return utils.ast2str(ret.stmt);
     }).join("\n");
     
-    curr_test += functions_str;
+    curr_test += functions_str+"\n";
 
     tests.push(utils.str2ast(constants.ENTER_STR));
+
+    var fun_test_call_str = `test${number_test[fun_name]}_${fun_name}();`
+    curr_test += fun_test_call_str;
+    tests.push(utils.str2ast(fun_test_call_str));
 
     //It will write the function's test in a file inside the TS file test directory
     fs.writeFileSync(output_dir+"/test"+number_test[fun_name]+"_"+fun_name+".js",fuel_constant_code+"\n"+js_file+"\n\n"+utils.stringManipulation(curr_test));
