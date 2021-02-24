@@ -5,7 +5,9 @@ export class CosetteFunctions {
     boolean_creator:string = "symb_boolean"
     null_creator:string = "null"
     void_creator:string = "undefined"
-    any_creator:string ="symb"
+    any_creator:string = "symb"
+    fresh_symb_creator:string = "fresh_symb"
+    assume:string = "Assume"
   
     //function that will return the string of the call of the symbolic number creator
     numberCreator(x:string):string{

@@ -11,6 +11,9 @@ import * as generateSymbolicInterface from "./generateSymbolicInterface";
 import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
 import * as growers from "./growers";
+import * as cosetteFunctions from "./cosetteFunctions";
+
+var cosFunc = new cosetteFunctions.CosetteFunctions(); 
 
 //::::::::This function generates the call of all the constructors of a class::::::::
 function generateConstructorTests<ts_type>(class_name:string, program_info:IProgramInfo<ts_type>){
@@ -79,12 +82,12 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
   stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
 
   for(var i = 0; i < control_vars.length; i++) {
-    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i], freshVars.freshChoiceSuffix());
     stmts.unshift(control_var_declaration);
   }
 
   for(var i = 0; i < new_fuel_vars.length; i++) {
-    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i], freshVars.freshChoiceSuffix());
     stmts.unshift(fuel_var_declaration);
   }
 
@@ -137,12 +140,12 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
   
   for(var i = 0; i < control_vars.length; i++) {
-    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i], freshVars.freshChoiceSuffix());
     stmts.unshift(control_var_declaration);
   }
 
   for(var i = 0; i < new_fuel_vars.length; i++) {
-    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i], freshVars.freshChoiceSuffix());
     stmts.unshift(fuel_var_declaration);
   }
 
@@ -223,7 +226,13 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   //Create functions generated for object recursive and non-recursive objects
   Object.keys(classes_info).forEach(function (class_name) {
     if(first_class) {
-      fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n`;
+      fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n\n`;
+      fuel_constant_code += `function choice(limit, suffix){
+      var x = ${cosFunc.fresh_symb_creator}('choice_var', 'number');
+      var arg = (x > 0 && x <= limit);
+      ${cosFunc.assume}(arg);
+      return x;
+    }\n`;
       comment = "Comment1Functions"+constants.SPACE_STR+"used"+constants.SPACE_STR+"to"+constants.SPACE_STR+"create/grow"+constants.SPACE_STR+"the"+constants.SPACE_STR+"objects"+"Comment2();";
       tests.push(utils.str2ast(comment));
       constant_code_str += comment+"\n";

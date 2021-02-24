@@ -1,5 +1,5 @@
-import { string } from "yargs";
 import * as constants from "./constants";
+import * as freshVars from "./freshVars";
 import * as utils from "./utils";
 
 //::::::::Turns function expression into function declaration::::::::
@@ -334,7 +334,7 @@ export function generateBlock(stmts) {
 }
 
 //::::::::This function creates a control var declaration::::::::
-export function createControlVarDeclr(control_var:string, control_num:number) {
+export function createControlVarDeclr(control_var:string, control_num:number, suffix:number) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -355,6 +355,11 @@ export function createControlVarDeclr(control_var:string, control_num:number) {
               type: "Literal",
               value: control_num,
               raw: control_num+""
+            },
+            {
+              type: "Literal",
+              value: suffix,
+              raw: suffix+""
             }
           ]
         }
@@ -365,7 +370,7 @@ export function createControlVarDeclr(control_var:string, control_num:number) {
 }
 
 //::::::::This function creates a control var declaration::::::::
-export function createFuelVarDeclr(fuel_var:string) {
+export function createFuelVarDeclr(fuel_var:string, suffix:number) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -385,6 +390,11 @@ export function createFuelVarDeclr(fuel_var:string) {
             {
               type: "Identifier",
               name: "fuel"
+            },
+            {
+              type: "Literal",
+              value: suffix,
+              raw: suffix+""
             }
           ]
         }

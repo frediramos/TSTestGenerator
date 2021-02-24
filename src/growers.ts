@@ -22,7 +22,7 @@ export function generateGrower<ts_type>(class_name:string, class_growers_info:st
     var stmts = []
 
     var fuel_var = freshVars.freshFuelVar();
-    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(fuel_var);
+    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(fuel_var, freshVars.freshChoiceSuffix());
     stmts.push(fuel_var_declaration);
 
     var single_grower_str = constants.SINGLE_GROW_STR+class_name;
@@ -69,7 +69,7 @@ function generateSingleGrower<ts_type>(class_name:string, class_growers_info:str
     if(class_growers_info.length > 1) {
         var control_grower_var = freshVars.freshControlGrowerVar();
         var number_growers = class_growers_info.length;
-        var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_grower_var, number_growers);
+        var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_grower_var, number_growers, freshVars.freshChoiceSuffix());
         stmts.unshift(control_var_declaration); 
         stmts.push(TsASTFunctions.createSwitchStmtVar(control_grower_var, switch_branches));
     } else {
@@ -82,7 +82,7 @@ function generateSingleGrower<ts_type>(class_name:string, class_growers_info:str
 function createControlVarDeclrs(control_vars:string[], control_nums:number[]) {
     var stmts = []
     for(var i = 0; i < control_vars.length; i++) {
-        var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+        var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i], freshVars.freshChoiceSuffix());
         stmts.push(control_var_declaration); 
     }
     return stmts;
@@ -91,7 +91,7 @@ function createControlVarDeclrs(control_vars:string[], control_nums:number[]) {
 function createFuelVarDeclrs(fuel_vars:string[]) {
     var stmts = []
     for(var i = 0; i < fuel_vars.length; i++) {
-        var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(fuel_vars[i]);
+        var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(fuel_vars[i], freshVars.freshChoiceSuffix());
         stmts.push(fuel_var_declaration); 
     }
     return stmts;

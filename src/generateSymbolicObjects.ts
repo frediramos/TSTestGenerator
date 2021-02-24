@@ -199,12 +199,12 @@ export function makeRecursiveCreateFunction<ts_type>(class_name:string, program_
     }
 
     for(var i = 0; i < control_vars.length; i++) {
-      var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+      var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i], freshVars.freshChoiceSuffix());
       stmts.push(control_var_declaration);
     }
 
     for(var i = 0; i < new_fuel_vars.length; i++) {
-      var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+      var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i], freshVars.freshChoiceSuffix());
       stmts.unshift(fuel_var_declaration);
     }
 
@@ -412,12 +412,12 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
   }
 
   for(var i = 0; i < control_vars.length; i++) {
-    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i]);
+    var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i], freshVars.freshChoiceSuffix());
     stmts.unshift(control_var_declaration);
   }
 
   for(var i = 0; i < new_fuel_vars.length; i++) {
-    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i]);
+    var fuel_var_declaration = TsASTFunctions.createFuelVarDeclr(new_fuel_vars[i], freshVars.freshChoiceSuffix());
     stmts.unshift(fuel_var_declaration);
   }
 
