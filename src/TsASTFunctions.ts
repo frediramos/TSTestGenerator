@@ -334,7 +334,7 @@ export function generateBlock(stmts) {
 }
 
 //::::::::This function creates a control var declaration::::::::
-export function createControlVarDeclr(control_var:string, control_num:number, suffix:number) {
+export function createControlVarDeclr(control_var:string, control_num:number, suffix:string) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -359,7 +359,7 @@ export function createControlVarDeclr(control_var:string, control_num:number, su
             {
               type: "Literal",
               value: suffix,
-              raw: suffix+""
+              raw: suffix
             }
           ]
         }
@@ -370,7 +370,7 @@ export function createControlVarDeclr(control_var:string, control_num:number, su
 }
 
 //::::::::This function creates a control var declaration::::::::
-export function createFuelVarDeclr(fuel_var:string, suffix:number) {
+export function createFuelVarDeclr(fuel_var:string, suffix:string) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -394,7 +394,7 @@ export function createFuelVarDeclr(fuel_var:string, suffix:number) {
             {
               type: "Literal",
               value: suffix,
-              raw: suffix+""
+              raw: suffix
             }
           ]
         }

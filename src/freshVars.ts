@@ -36,15 +36,5 @@ export var freshIndexVar = makeFreshVariable("i");
 export var freshControlArgVar = makeFreshVariable("control_arg");
 //::::::::Function used to create the name of a control variable -> used to select which grower function will be used to grow the object::::::::
 export var freshControlGrowerVar = makeFreshVariable("control_grower");
-
-
-function makeFreshSuffix () {
-    var count:number = 0; 
-  
-    return function () { 
-       count++;  
-       return count;      
-   }
-}
 //::::::::Function used to create the suffix number of a choice variable -> used to identify which choice var was used::::::::
-export var freshChoiceSuffix = makeFreshSuffix();
+export var freshChoiceSuffix = makeFreshVariable("");
