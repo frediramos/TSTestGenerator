@@ -2,6 +2,80 @@ import {IProgramInfo} from "./IProgramInfo"
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
 
+// Generate for loop for array iteration
+/* 
+ - ret_var -> nome da variavel que vai guardar o Booleano que denota se todos os elementos do array tem o tipo adequado  
+ - var_iterator_name -> i 
+ - var_arr_name -> arr
+ - body_verification_stmt -> Codigo que verifica que arr[i] tem o tipo adequado 
+ - body_verification_expr -> variavel com o resultado da verificacao - b
+
+
+for (var i = 0; i<arr.length; i++) {
+   body_verification_stmt
+   ret = ret && b
+}
+*/
+function generateForStmtArrayIteration (ret_var, var_iterator_name, var_arr_name, body_verification_stmt, body_verification_expr) {
+  return {
+    "type": "ForStatement",
+    "init": {
+      "type": "VariableDeclaration",
+      "declarations": [
+        {
+          "type": "VariableDeclarator",
+          "id": {
+            "type": "Identifier",
+            "name": "i"
+          },
+          "init": {
+            "type": "Literal",
+            "value": 0,
+            "raw": "0"
+          }
+        }
+      ],
+      "kind": "var"
+    },
+    "test": {
+      "type": "BinaryExpression",
+      "operator": "<",
+      "left": {
+        "type": "Identifier",
+        "name": "i"
+      },
+      "right": {
+        "type": "MemberExpression",
+        "computed": false,
+        "object": {
+          "type": "Identifier",
+          "name": "v2"
+        },
+        "property": {
+          "type": "Identifier",
+          "name": "length"
+        }
+      }
+    },
+    "update": {
+      "type": "UpdateExpression",
+      "operator": "++",
+      "argument": {
+        "type": "Identifier",
+        "name": "i"
+      },
+      "prefix": false
+    },
+    "body": {
+      "type": "BlockStatement",
+      "body": []
+    }
+  }
+
+
+}
+
+
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
 function generateFinalStringAsrt(ret_var:string) { 
   var x = freshVars.freshAssertVar();
@@ -113,6 +187,8 @@ function generateFinalObjectLiteralAsrt<ts_type>(ret_type:ts_type,ret_var:string
 
   //Generates the assert of each property of the object literal
   Object.keys(object_literal_dictionary).forEach(function (property_name) {
+    // ISTO ESTA MAL!!!!!!!!!!!!!
+    // E OS STATEMENTS GERADOS A PARTIR DO TIPO DE RETORNO? 
     var type_asrt = generateFinalAsrt(object_literal_dictionary[property_name], ret_var+"."+property_name, program_info);
     type_asrt_str += "&& (" + type_asrt.expr_str + ")";
   });
@@ -124,6 +200,26 @@ function generateFinalObjectLiteralAsrt<ts_type>(ret_type:ts_type,ret_var:string
       var:x,
       expr_str: type_asrt_str
   }
+}
+
+
+function generateFinalArrayLiteralAsrt<ts_type>(ret_type:ts_type, ret_var:string, program_info:IProgramInfo<ts_type>) {
+  var i = freshVars.freshIndexVar();
+  var type_asrt_str =`(typeof ${ret_var} === 'object')`;
+
+  var instance_of_asrt_str = `(${ret_var} instanceof Array)`; 
+
+  var arr_content_type = program_info.getTypeOfTheArray(ret_type); 
+  
+  var type_asrt = generateFinalAsrt(arr_content_type, ret_var+"[i]", program_info);
+ 
+
+  
+
+
+
+
+
 }
 
 
@@ -188,6 +284,10 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
         return  generateFinalObjectLiteralAsrt(ret_type, ret_var, program_info);
       } 
       
+      if (program_info.isArrayType(ret_type)) {
+        return generateFinalArrayLiteralAsrt(ret_type, ret_var, program_info);
+      }
+
       //If the type reaches this case it is a type that the assertion is unsupported by the testGenerator
       else {
         throw new Error ("generateFinalAsrt: Unsupported type: "+ret_type_str)
