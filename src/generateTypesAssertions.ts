@@ -2,95 +2,6 @@ import {IProgramInfo} from "./IProgramInfo"
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
 
-// Generate for loop for array iteration
-/* 
- - ret_var -> nome da variavel que vai guardar o Booleano que denota se todos os elementos do array tem o tipo adequado  
- - var_iterator_name -> i 
- - var_arr_name -> arr
- - body_verification_stmt -> Codigo que verifica que arr[i] tem o tipo adequado 
- - body_verification_expr -> variavel com o resultado da verificacao - b
-
-
-for (var i = 0; i<arr.length; i++) {
-   body_verification_stmt
-   ret = ret && b
-}
-*/
-function generateForStmtArrayIteration (ret_var, var_iterator_name, var_arr_name, body_verification_stmt, body_verification_expr) {
-  
-  var for_init_str  = `var ${var_iterator_name} = 0`;
-
-  var for_cond_str = `${var_iterator_name} < ${var_arr_name}.length`;
-
-  var for_inc_str = `${var_iterator_name}++`;
-
-  var for_stmt_str = `for (${for_init_str}; ${for_cond_str}; ${for_inc_str})`;
-
-  var body_str = `${body_verification_expr} = ${body_verification_stmt}; 
-                  ${ret_var} = ${ret_var} && ${body_verification_expr};`;
-
-  var ret_str = `${for_stmt_str} {${body_str}};`;
-
-  return utils.str2ast(ret_str);
-  
-  return {
-    "type": "ForStatement",
-    "init": {
-      "type": "VariableDeclaration",
-      "declarations": [
-        {
-          "type": "VariableDeclarator",
-          "id": {
-            "type": "Identifier",
-            "name": "i"
-          },
-          "init": {
-            "type": "Literal",
-            "value": 0,
-            "raw": "0"
-          }
-        }
-      ],
-      "kind": "var"
-    },
-    "test": {
-      "type": "BinaryExpression",
-      "operator": "<",
-      "left": {
-        "type": "Identifier",
-        "name": "i"
-      },
-      "right": {
-        "type": "MemberExpression",
-        "computed": false,
-        "object": {
-          "type": "Identifier",
-          "name": "v2"
-        },
-        "property": {
-          "type": "Identifier",
-          "name": "length"
-        }
-      }
-    },
-    "update": {
-      "type": "UpdateExpression",
-      "operator": "++",
-      "argument": {
-        "type": "Identifier",
-        "name": "i"
-      },
-      "prefix": false
-    },
-    "body": {
-      "type": "BlockStatement",
-      "body": []
-    }
-  }
-
-
-}
-
 
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
 function generateFinalStringAsrt(ret_var:string) { 
@@ -220,15 +131,25 @@ function generateFinalObjectLiteralAsrt<ts_type>(ret_type:ts_type,ret_var:string
 
 
 function generateFinalArrayLiteralAsrt<ts_type>(ret_type:ts_type, ret_var:string, program_info:IProgramInfo<ts_type>) {
-  var i = freshVars.freshIndexVar();
-  var type_asrt_str =`(typeof ${ret_var} === 'object')`;
-
-  var instance_of_asrt_str = `(${ret_var} instanceof Array)`; 
+  var iter_var = freshVars.freshIndexVar();
+  var b = freshVars.freshAssertVar();
 
   var arr_content_type = program_info.getTypeOfTheArray(ret_type); 
-  
-  var type_asrt = generateFinalAsrt(arr_content_type, ret_var+"[i]", program_info);
- 
+  var code_asrt_for_body = generateFinalAsrt(arr_content_type, ret_var+"[i]", program_info);
+
+  var iter_var = freshVars.freshIndexVar(); 
+  var tmpl = `
+  var ${b} = (typeof ${ret_var} === 'object') && (${ret_var} instanceof Array); 
+  for (var ${iter_var}=0; ${iter_var}<${ret_var}.length && ${b}; ${iter_var}++) {
+    ${utils.ast2str(code_asrt_for_body.stmt)}
+    ${b} = ${b} && ${code_asrt_for_body.var}
+  }`; 
+
+  return {
+    stmt: [utils.str2ast(tmpl)],
+    var: b, 
+    expr_str: "true"
+  }
 }
 
 
