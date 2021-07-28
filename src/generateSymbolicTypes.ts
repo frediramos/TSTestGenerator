@@ -99,6 +99,9 @@ function createAnyAssignment () {
 //::::::::Function used to make a symbol assignment to a variable::::::::
 export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IProgramInfo<ts_type>,fuel_var?:string) { 
 
+    console.log("Generating symb argument!!"); 
+    console.log(arg_type);
+
     //Turns the type into a string
     var type_str = program_info.getStringFromType(arg_type);
   
@@ -206,7 +209,9 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
     //For each type in the arg_types array generates the variable of the respective type
     for (var i=0; i<arg_types.length; i++) {
       //Creates the variable and assignment of the type
-    
+      
+      console.log("Going to print argument: "+i);
+
       var ret = createSymbAssignment(arg_types[i],program_info,fuel_var);
       stmts = stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 

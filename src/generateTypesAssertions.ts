@@ -137,16 +137,23 @@ function generateFinalArrayLiteralAsrt<ts_type>(ret_type:ts_type, ret_var:string
   var arr_content_type = program_info.getTypeOfTheArray(ret_type); 
   var code_asrt_for_body = generateFinalAsrt(arr_content_type, ret_var+"[i]", program_info);
 
+  console.log("inside generateFinalArrayLiteralAsrt");
+  console.log(code_asrt_for_body.stmt);
+
+
   var iter_var = freshVars.freshIndexVar(); 
   var tmpl = `
-  var ${b} = (typeof ${ret_var} === 'object') && (${ret_var} instanceof Array); 
+  { var ${b} = (typeof ${ret_var} === 'object') && (${ret_var} instanceof Array); 
   for (var ${iter_var}=0; ${iter_var}<${ret_var}.length && ${b}; ${iter_var}++) {
-    ${utils.ast2str(code_asrt_for_body.stmt)}
+    ${utils.ast2str(code_asrt_for_body.stmt[0])}
     ${b} = ${b} && ${code_asrt_for_body.var}
-  }`; 
+  } }`; 
+
+  var stmt = utils.str2ast(tmpl); 
+  console.log(stmt); 
 
   return {
-    stmt: [utils.str2ast(tmpl)],
+    stmt: [ stmt ],
     var: b, 
     expr_str: "true"
   }
@@ -177,6 +184,9 @@ function generateFinalFunctionAsrt() {
 
 //::::::::This function generates an assertion to check the return type ::::::::
 export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, program_info : IProgramInfo<ts_type>) {
+
+  console.log("generateFinalAsrt");
+  console.log(ret_type);
 
   //Turns the type into a string
   var ret_type_str = program_info.getStringFromType(ret_type);
@@ -218,14 +228,14 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
         return generateFinalUnionAsrt(ret_type, ret_var, program_info);
       } 
 
+      if (program_info.isArrayType(ret_type)) {
+        return generateFinalArrayLiteralAsrt(ret_type, ret_var, program_info);
+      }
+
       //If the type is an object literal it will assert each property to the respective type
       if (program_info.isObjectLiteralType(ret_type)) {        
         return  generateFinalObjectLiteralAsrt(ret_type, ret_var, program_info);
       } 
-      
-      if (program_info.isArrayType(ret_type)) {
-        return generateFinalArrayLiteralAsrt(ret_type, ret_var, program_info);
-      }
       
       //TODO
       if(program_info.isFunctionType(ret_type)){

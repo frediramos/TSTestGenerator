@@ -18,7 +18,7 @@ export function ast2str (e) {
      return escodegen.generate(e, option);
     } catch (err) { 
      if ((typeof e) === "object") { 
-       console.log("converting the following ast to str:\n" + e);
+       console.log("converting the following ast to str:\n" + (JSON.stringify(e)));
      } else { 
        console.log("e is not an object!!!")
      }
