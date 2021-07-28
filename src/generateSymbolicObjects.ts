@@ -359,7 +359,8 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
   var new_fuel_vars:string[] = [];
   var class_constructors = program_info.getClassConstructorsInfo(class_name);
 
-  //Iterates over all the object constructors 
+  //Iterates over all the object constructors
+  if(class_constructors !== undefined){
   for(var i=0; i<class_constructors.length; i++){
     symb_vars=[];
 
@@ -410,7 +411,7 @@ export function makeNonRecursiveCreateFunction<ts_type>(class_name:string, progr
   else {
     stmts = objs[0].body;
   }
-
+  }
   for(var i = 0; i < control_vars.length; i++) {
     var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i], freshVars.freshChoiceSuffix());
     stmts.unshift(control_var_declaration);

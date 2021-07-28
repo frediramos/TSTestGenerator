@@ -17,6 +17,22 @@ for (var i = 0; i<arr.length; i++) {
 }
 */
 function generateForStmtArrayIteration (ret_var, var_iterator_name, var_arr_name, body_verification_stmt, body_verification_expr) {
+  
+  var for_init_str  = `var ${var_iterator_name} = 0`;
+
+  var for_cond_str = `${var_iterator_name} < ${var_arr_name}.length`;
+
+  var for_inc_str = `${var_iterator_name}++`;
+
+  var for_stmt_str = `for (${for_init_str}; ${for_cond_str}; ${for_inc_str})`;
+
+  var body_str = `${body_verification_expr} = ${body_verification_stmt}; 
+                  ${ret_var} = ${ret_var} && ${body_verification_expr};`;
+
+  var ret_str = `${for_stmt_str} {${body_str}};`;
+
+  return utils.str2ast(ret_str);
+  
   return {
     "type": "ForStatement",
     "init": {
@@ -213,13 +229,6 @@ function generateFinalArrayLiteralAsrt<ts_type>(ret_type:ts_type, ret_var:string
   
   var type_asrt = generateFinalAsrt(arr_content_type, ret_var+"[i]", program_info);
  
-
-  
-
-
-
-
-
 }
 
 
@@ -234,7 +243,16 @@ function generateFinalAnyAsrt() {
   } 
 }
 
-
+//TODO
+function generateFinalFunctionAsrt() {
+  var x = freshVars.freshAssertVar();
+  var ret_str = `var ${x} = true;`; 
+  return {
+    stmt:[utils.str2ast(ret_str)],
+    var:x,
+    expr_str: "true"
+  } 
+}
 
 //::::::::This function generates an assertion to check the return type ::::::::
 export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, program_info : IProgramInfo<ts_type>) {
@@ -287,6 +305,12 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
       if (program_info.isArrayType(ret_type)) {
         return generateFinalArrayLiteralAsrt(ret_type, ret_var, program_info);
       }
+      
+      //TODO
+      if(program_info.isFunctionType(ret_type)){
+        return generateFinalFunctionAsrt();
+      }
+
 
       //If the type reaches this case it is a type that the assertion is unsupported by the testGenerator
       else {
