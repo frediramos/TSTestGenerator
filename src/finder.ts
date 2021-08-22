@@ -7,7 +7,6 @@ export class ComposedInfo {
     ret_type:ts.Type;
 }
 
-
 //Interface of a simple Hashtable
 export interface HashTable<T> {
     [key:string] : T;
@@ -138,7 +137,8 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     //::::::::Checks if the given type is a function type::::::::
     isFunctionType(arg_type:ts.Type):boolean {
         var arg_str =this.Checker.typeToString(arg_type);
-        return arg_str.includes("=>"); 
+        return arg_str.includes("=>") || 
+        (arg_type.symbol && arg_type.symbol.escapedName === 'Function'); 
     }
 
     //::::::::Checks if the given type is an array type::::::::
@@ -162,6 +162,12 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     isLiteralType(literal_type:ts.Type):boolean {
         var literal_type_node:ts.TypeLiteralNode = <ts.TypeLiteralNode> this.Checker.typeToTypeNode(literal_type);
         return typeof literal_type_node["literal"] === "object";
+    }
+
+    isGenericType(generic_type:ts.Type):boolean {
+        console.log("GENERIC TYPE")
+        console.log(generic_type);
+        return true;
     }
 
     getStringFromType(type:ts.Type):string {
@@ -378,7 +384,7 @@ function initializeClassesGraph(classes_graph:HashTable<ClassVertex>,program_inf
                    
                 else if(program_info.isFunctionType(arg_type)){
                     var ret_func_elements = program_info.getFunctionElements(arg_type);
-                    for(var k = 0; k < ret_func_elements[0].params.length; k++) {
+                    for(var k = 0; ret_func_elements[0] && k < ret_func_elements[0].params.length ; k++) {
                         var param_type = ret_func_elements[0].params[k];
                         var param_type_str = program_info.Checker.typeToString(param_type);
                         if (program_info.hasClass(param_type_str)) {

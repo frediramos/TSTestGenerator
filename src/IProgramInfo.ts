@@ -31,6 +31,7 @@ export interface IProgramInfo <ts_type>{
     isUnionType(union_type:ts_type):boolean;
     isObjectLiteralType(object_literal_type:ts_type):boolean;
     isLiteralType(literal_type:ts_type):boolean;
+    isGenericType(generic_type:ts_type):boolean;
 
     getStringFromType(ts_type):string;
     getObjectLiteralPropertyTypes(ts_type):{[property_name: string] : ts_type;};

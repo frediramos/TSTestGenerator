@@ -99,9 +99,6 @@ function createAnyAssignment () {
 //::::::::Function used to make a symbol assignment to a variable::::::::
 export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IProgramInfo<ts_type>,fuel_var?:string) { 
 
-    console.log("Generating symb argument!!"); 
-    console.log(arg_type);
-
     //Turns the type into a string
     var type_str = program_info.getStringFromType(arg_type);
   
@@ -150,7 +147,13 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
          
           var ret_func_elements = program_info.getFunctionElements(arg_type);
           var fun_name = freshVars.freshMockFuncVar();
-          var func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].params, ret_func_elements[0].ret, program_info);
+          //check if there is a return type annotated
+          var func_expr;
+          if(ret_func_elements[0]){
+            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].params, ret_func_elements[0].ret, program_info);
+          } else {
+            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].params, ret_func_elements[0].ret, program_info);
+          }
           var func_decl = TsASTFunctions.func_expr2func_decl(fun_name, func_expr);
           return {
             stmts: [func_decl],
@@ -176,6 +179,11 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
   
         else if(program_info.isLiteralType(arg_type)){
           return createLiteralType(arg_type);
+        }
+
+        //TODO - hoew to deal with generic types
+        else if(program_info.isGenericType(arg_type)){
+          return createAnyAssignment();
         }
   
         //If the type reaches this case it is a type unsupported by the testGenerator
@@ -209,9 +217,11 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
     //For each type in the arg_types array generates the variable of the respective type
     for (var i=0; i<arg_types.length; i++) {
       //Creates the variable and assignment of the type
-      
-      console.log("Going to print argument: "+i);
 
+      if(program_info.isFunctionType(arg_types[i])){
+        console.log('SOU UMA FUNCTION')
+      }
+      
       var ret = createSymbAssignment(arg_types[i],program_info,fuel_var);
       stmts = stmts.concat(ret.stmts); 
       symb_vars.push(ret.var); 

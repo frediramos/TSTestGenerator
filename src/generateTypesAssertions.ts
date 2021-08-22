@@ -137,10 +137,6 @@ function generateFinalArrayLiteralAsrt<ts_type>(ret_type:ts_type, ret_var:string
   var arr_content_type = program_info.getTypeOfTheArray(ret_type); 
   var code_asrt_for_body = generateFinalAsrt(arr_content_type, ret_var+"[i]", program_info);
 
-  console.log("inside generateFinalArrayLiteralAsrt");
-  console.log(code_asrt_for_body.stmt);
-
-
   var iter_var = freshVars.freshIndexVar(); 
   var tmpl = `
   { var ${b} = (typeof ${ret_var} === 'object') && (${ret_var} instanceof Array); 
@@ -150,8 +146,7 @@ function generateFinalArrayLiteralAsrt<ts_type>(ret_type:ts_type, ret_var:string
   } }`; 
 
   var stmt = utils.str2ast(tmpl); 
-  console.log(stmt); 
-
+  
   return {
     stmt: [ stmt ],
     var: b, 
@@ -184,9 +179,6 @@ function generateFinalFunctionAsrt() {
 
 //::::::::This function generates an assertion to check the return type ::::::::
 export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, program_info : IProgramInfo<ts_type>) {
-
-  console.log("generateFinalAsrt");
-  console.log(ret_type);
 
   //Turns the type into a string
   var ret_type_str = program_info.getStringFromType(ret_type);
@@ -240,6 +232,11 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
       //TODO
       if(program_info.isFunctionType(ret_type)){
         return generateFinalFunctionAsrt();
+      }
+
+      //TODO - hoew to deal with generic types
+      if(program_info.isGenericType(ret_type)){
+        return generateFinalAnyAsrt();
       }
 
 
