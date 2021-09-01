@@ -165,9 +165,8 @@ export class ProgramInfo implements IProgramInfo<ts.Type> {
     }
 
     isGenericType(generic_type:ts.Type):boolean {
-        console.log("GENERIC TYPE")
-        console.log(generic_type);
-        return true;
+        return generic_type.symbol && generic_type.symbol.declarations &&
+        ts.SyntaxKind[generic_type.symbol.declarations[0].kind] === "TypeParameter";
     }
 
     getStringFromType(type:ts.Type):string {
