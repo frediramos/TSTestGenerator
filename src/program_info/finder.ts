@@ -1,11 +1,17 @@
 import * as parser from "./Parser"
-import {IProgramInfoCustomParser} from "./IProgramInfoCustomParser"
+import {IProgramInfo} from "./IProgramInfo"
 
 export class TSType{
     type;
 
     constructor(type){
-        this.type = type;
+        if(type === null){
+            this.type = {
+                type: 'VoidKeyword'
+            }
+        } else {
+            this.type = type;
+        }
     }
 
     getType(){
@@ -30,7 +36,7 @@ class ClassVertex{
 }
 
 //Class that will store all the information in the program
-export class ProgramInfo implements IProgramInfoCustomParser<TSType> {
+export class ProgramInfo implements IProgramInfo<TSType> {
     ClassesInfo: string[] = [];
     MethodsInfo: HashTable<HashTable<ComposedInfo>> = {};
     ConstructorsInfo: HashTable<ComposedInfo []> = {};
@@ -109,10 +115,23 @@ export class ProgramInfo implements IProgramInfoCustomParser<TSType> {
             ret: new TSType(fun_type.getType().TStype)
         };
     }
+
+    getUnionTypes(uni_type:TSType):TSType[]{
+        var res = [];
+        uni_type.getType().subtypes.forEach(subtype => {
+            res.push(new TSType(subtype));
+        });
+        return res;
+    }
     
     //This function returns the type of the array
     getTypeOfTheArray(arr_type:TSType): TSType{
-        return arr_type.getType().subtypes.type;
+        var arr_TSType = arr_type.getType()
+        //check if it Array<type>
+        if(arr_TSType.type === 'TypeReference'){
+            return new TSType(arr_type.getType().typeArguments[0]);
+        }
+        return new TSType(arr_TSType.subtypes);
     }
 
     hasCycle(class_name:string):boolean {
@@ -139,12 +158,14 @@ export class ProgramInfo implements IProgramInfoCustomParser<TSType> {
     //::::::::Checks if the given type is a function type::::::::
     isFunctionType(arg_type:TSType):boolean {
         var arg_str = arg_type.getType().type;
-        return arg_str === 'ArrowFunction' || arg_str === 'Function'; 
+        return arg_str && arg_str === 'ArrowFunction' || arg_str === 'Function'; 
     }
 
     //::::::::Checks if the given type is an array type::::::::
     isArrayType(arr_type:TSType):boolean {
-        return arr_type.getType().type === 'ArrayType';
+        return arr_type.getType().type === 'ArrayType' || 
+        (arr_type.getType().type === 'TypeReference' && 
+        arr_type.getType().identifier.identifier === 'Array');
     }
 
     //::::::::Checks if the given type is an union type::::::::
@@ -161,19 +182,22 @@ export class ProgramInfo implements IProgramInfoCustomParser<TSType> {
     //::::::::Checks if the given type is an object literal type::::::::
     isLiteralType(literal_type:TSType):boolean {
         var arg_str = literal_type.getType().type;
-        return arg_str.indexOf('Literal') !== -1;
+        return arg_str && arg_str.indexOf('Literal') !== -1;
     }
 
     isGenericType(generic_type:TSType):boolean {
         return generic_type.getType().type === 'TypeParameter';
     }
 
-    getStringFromType(type:TSType):string {
-        var res = type.getType().type;
-        if(res === 'TypeReference'){
+    getStringFromType(type):string {
+        var res = type;
+        if(type instanceof TSType){
+            res = type.getType();
+        }
+        if(res.type === 'TypeReference'){
             return res.identifier.identifier;
         }
-        return res;
+        return res.type;
     }  
 
     getObjectLiteralPropertyTypes(type:TSType):{[property_name: string] : TSType;} {
@@ -224,12 +248,15 @@ export function finder(filename:string):ProgramInfo {
     //call custom parser
     var ast = parser.getAST(filename);
     visitAST(ast,prog_info);
+    console.log(ast)
+    console.log(prog_info);
     return prog_info;
 }
 
 //::::::::Function to traverse the AST::::::::
 function visitAST(ast, prog_info:ProgramInfo) {
     ast.statements.forEach(stat => {
+        
         if(stat.type === 'ClassDeclaration' || stat.type === 'InterfaceDeclaration'){
             var name = stat.identifier.identifier;
              //Store the type of the class in the position "<ClassName>" of ClassesInfo
@@ -237,52 +264,143 @@ function visitAST(ast, prog_info:ProgramInfo) {
                 prog_info.ClassesInfo.push(name);
     
             //Store the type of the interface in the position "<InterfaceName>" of InterfacesInfo
-            else if(stat.type === 'InterfaceDeclaration')
+            else if(stat.type === 'InterfaceDeclaration'){
                 prog_info.InterfacesInfo.push(name);
-            
-            var constructor_count:number = 0;
 
+                //Placing an interface constructor in the constructors info that will be generated in testGenerator.ts
+                //It will have no arguments because the property types will be generated and assigned to the object fields
+
+                //Must initialize sub-array, otherwise it is undefined
+                if (prog_info.ConstructorsInfo[name] === undefined)
+                    prog_info.ConstructorsInfo[name] = [];
+
+                //Creating a ComposedInfo object in the position "<InterfaceName><0>" of ConstructorsInfo since it will only have 1 constructor
+                prog_info.ConstructorsInfo[name][0] = new ComposedInfo();
+
+                //Store the types of the parameters in arg_types in the position "<InterfaceName><0>" of ConstructorsInfo which will be []
+                prog_info.ConstructorsInfo[name][0].arg_types = [];
+
+                //Store the return type of the constructor in ret_type in the position "<InterfaceName><0>" of ConstructorsInfo 
+                prog_info.ConstructorsInfo[name][0].ret_type = new TSType(name);;
+                    
+            }
+            
             //handle constructors
-            stat.Constructors.forEach(cons => {
-                prog_info.ConstructorsInfo[name][constructor_count] = new ComposedInfo();
-                
-                //Store the types of the parameters in arg_types in the position "<ClassName><ConstructorNumber>" of ConstructorsInfo 
-                for(const parameter of cons.parameters) {
-                    prog_info.ConstructorsInfo[name][constructor_count].arg_types.push(new TSType(parameter.TStype.type));
+            if(stat.Constructors !== null && stat.Constructors !== undefined){
+                var constructor_count:number = 0;
+                //Must initialize sub-array, otherwise it is undefined
+                if(prog_info.ConstructorsInfo[name]===undefined){
+                    prog_info.ConstructorsInfo[name] = [];
                 }
+                stat.Constructors.forEach(cons => {
+                    prog_info.ConstructorsInfo[name][constructor_count] = new ComposedInfo();
                 
-                //Store the return type of the constructor in ret_type in the position "<ClassName><ConstructorNumber>" of ConstructorsInfo 
-                prog_info.ConstructorsInfo[name][constructor_count].ret_type= new TSType(name);
+                    if(cons.parameters !== null){
+                        //Store the types of the parameters in arg_types in the position "<ClassName><ConstructorNumber>" of ConstructorsInfo 
+                        for(const parameter of cons.parameters) {
+                            prog_info.ConstructorsInfo[name][constructor_count].arg_types.push(new TSType(parameter.TStype));
+                        }                
+                    }
                 
-                constructor_count++;
-            });
+                    //Store the return type of the constructor in ret_type in the position "<ClassName><ConstructorNumber>" of ConstructorsInfo 
+                    prog_info.ConstructorsInfo[name][constructor_count].ret_type= new TSType(name);
+                
+                    constructor_count++;
+                });
+            }
 
             //handle methods
-            stat.Methods.forEach(meth => {
-                prog_info.MethodsInfo[name][meth.identifier.identifier] = new ComposedInfo();
-
-                //Store the types of the parameters in arg_types in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
-                for(const parameter of meth.parameters) {
-                    prog_info.MethodsInfo[name][meth.identifier.identifier].arg_types.push(new TSType(parameter.TStype));
+            if(stat.Methods !== null && stat.Methods !== undefined){
+                //Must initialize sub-hashtable, otherwise it is undefined
+                if(prog_info.MethodsInfo[name]===undefined){
+                    prog_info.MethodsInfo[name] = {};
                 }
-
-                //Store the return type of the method in ret_type in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
-                prog_info.MethodsInfo[name][meth.identifier.identifier].ret_type = new TSType(meth.TStype);
-            });
+                stat.Methods.forEach(meth => {
+                    prog_info.MethodsInfo[name][meth.identifier.identifier] = new ComposedInfo();
+    
+                    //Store the types of the parameters in arg_types in the position "<Class/InterfaceName><MethodName>" of MethodsInfo
+                    if(meth.parameters !== null){
+                        for(const parameter of meth.parameters) {
+                            prog_info.MethodsInfo[name][meth.identifier.identifier].arg_types.push(new TSType(parameter.TStype));
+                        }
+                    }
+    
+                    //Store the return type of the method in ret_type in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
+                    prog_info.MethodsInfo[name][meth.identifier.identifier].ret_type = new TSType(meth.TStype);
+                });
+            }
 
             //handle properties
-            stat.PropertyDeclarations.forEach(prop => {
-                //Stores the property type in the position"<Class/InterfaceName><PropertyName>" of PropertiesInfo
-                prog_info.PropertiesInfo[name][prop.identifier.identifier] = new TSType(prop.TStype);
-            });
+            if((stat.PropertyDeclarations !== null && stat.PropertyDeclarations !== undefined)){
+                //Must initialize sub-hashtable, otherwise it is undefined
+                if(prog_info.PropertiesInfo[name]===undefined){
+                    prog_info.PropertiesInfo[name] = {};
+                }
+                stat.PropertyDeclarations.forEach(prop => {
+                    //Stores the property type in the position"<Class/InterfaceName><PropertyName>" of PropertiesInfo
+                    prog_info.PropertiesInfo[name][prop.identifier.identifier] = new TSType(prop.TStype);
+                });            
+            }
 
+            //handle interface properties
+            if(stat.PropertySignatures !== null && stat.PropertySignatures !== undefined){
+                stat.PropertySignatures.forEach(prop => {
+                    //handle properties
+                    if(prop.type === 'PropertySignature'){
+                        //Must initialize sub-hashtable, otherwise it is undefined
+                        if(prog_info.PropertiesInfo[name]===undefined){
+                            prog_info.PropertiesInfo[name] = {};
+                        }
+                        //Stores the property type in the position"<Class/InterfaceName><PropertyName>" of PropertiesInfo
+                        prog_info.PropertiesInfo[name][prop.identifier.identifier] = new TSType(prop.TStype);
+                    }
+
+                    //handle methods
+                    if(prop.type === 'MethodSignature'){
+                        //Must initialize sub-hashtable, otherwise it is undefined
+                        if(prog_info.MethodsInfo[name]===undefined){
+                            prog_info.MethodsInfo[name] = {};
+                        }
+                        prog_info.MethodsInfo[name][prop.identifier.identifier] = new ComposedInfo();
+    
+                        //Store the types of the parameters in arg_types in the position "<Class/InterfaceName><MethodName>" of MethodsInfo
+                        if(prop.parameters !== null){
+                            for(const parameter of prop.parameters) {
+                                prog_info.MethodsInfo[name][prop.identifier.identifier].arg_types.push(new TSType(parameter.TStype));
+                            }
+                        }
+    
+                        //Store the return type of the method in ret_type in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
+                        prog_info.MethodsInfo[name][prop.identifier.identifier].ret_type = new TSType(prop.TStype);
+                    }
+
+                    //handle functions
+                    if(prop.type === 'CallSignature'){
+                        prog_info.FunctionsInfo[name]=new ComposedInfo();
+        
+                        //Store the types of the parameters in arg_types in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
+                        if(prop.parameters !== null){
+                            prop.parameters.forEach(parameter => {
+                                prog_info.FunctionsInfo[name].arg_types.push(new TSType(parameter.TStype));
+                            });
+                        }
+
+                        //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
+                        prog_info.FunctionsInfo[name].ret_type = new TSType(prop.TStype);
+                    }
+                    
+                });   
+
+            }
         }
         else if(stat.type === 'FunctionDeclaration'){
             prog_info.FunctionsInfo[stat.identifier.identifier]=new ComposedInfo();
         
             //Store the types of the parameters in arg_types in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
-            for(const parameter of stat.parameters) {
-                prog_info.FunctionsInfo[stat.identifier.identifier][stat.identifier.identifier].arg_types.push(new TSType(parameter.TStype));
+            if(stat.parameters !== null){
+                stat.parameters.forEach(parameter => {
+                    prog_info.FunctionsInfo[stat.identifier.identifier].arg_types.push(new TSType(parameter.TStype));
+                });
             }
 
             //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
@@ -333,10 +451,10 @@ function initializeClassesGraph(classes_graph:HashTable<ClassVertex>,program_inf
                 }
 
                 else if(program_info.isUnionType(arg_type)){
-                    var union_types = arg_type.getType().TStypes;
+                    var union_types = arg_type.getType().subtypes;
                     for(var k = 0; k < union_types.length; k++) {
                         var union_type = union_types[k];
-                        var union_type_str = union_type.type;
+                        var union_type_str = program_info.getStringFromType(union_type);
                         if (program_info.hasClass(union_type_str)) {
                             classes_graph[class_name].edges.push(union_type_str);
                         }

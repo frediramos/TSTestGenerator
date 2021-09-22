@@ -1,6 +1,6 @@
 const fs = require('fs');
-import * as finder from "./finder";
-import {IProgramInfo} from "./IProgramInfo"
+import * as finder from "../program_info/finder";
+import {IProgramInfo} from "../program_info/IProgramInfo"
 import * as constants from "./constants";
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";

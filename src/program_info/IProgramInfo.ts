@@ -1,4 +1,4 @@
-export interface IProgramInfoCustomParser <ts_type>{
+export interface IProgramInfo <ts_type>{
     getClassesInfo() : string[];
 
     getConstructorsInfo() : {[class_name: string] : {arg_types:ts_type[], ret_type:ts_type}[];};
@@ -35,6 +35,7 @@ export interface IProgramInfoCustomParser <ts_type>{
 
     getStringFromType(ts_type):string;
     getObjectLiteralPropertyTypes(ts_type):{[property_name: string] : ts_type;};
+    getUnionTypes(ts_type):ts_type[];
 
     updateCreateInfo(name:string, control_nums:number[]) : void;
     getCreateInfo(name:string) : number[];
