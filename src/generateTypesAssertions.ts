@@ -15,6 +15,18 @@ function generateFinalStringAsrt(ret_var:string) {
   } 
 }
 
+//::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 
+function generateFinalStringWrapperAsrt(ret_var:string) { 
+  var x = freshVars.freshAssertVar();
+  
+  var ret_str = `var ${x} = ${ret_var} instanceof "String";`; 
+  return {
+    stmt:[utils.str2ast(ret_str)],
+    var:x,
+    expr_str: `instanceof ${ret_var} === "String"`
+  } 
+}
+
 //::::::::This function generates an assertion to check if the return type of a function is a number:::::::: 
 function generateFinalNumberAsrt(ret_var:string) { 
   var x = freshVars.freshAssertVar();
@@ -27,6 +39,18 @@ function generateFinalNumberAsrt(ret_var:string) {
   }
 }
 
+//::::::::This function generates an assertion to check if the return type of a function is a number:::::::: 
+function generateFinalNumberWrapperAsrt(ret_var:string) { 
+  var x = freshVars.freshAssertVar();
+
+  var ret_str = `var ${x} = ${ret_var} instanceof "Number";`; 
+  return {
+    stmt:[utils.str2ast(ret_str)],
+    var:x,
+    expr_str: `instanceof ${ret_var} === "Number"`
+  }
+}
+
 //::::::::This function generates an assertion to check if the return type of a function is a boolean:::::::: 
 function generateFinalBooleanAsrt(ret_var:string) { 
   var x = freshVars.freshAssertVar();
@@ -36,6 +60,18 @@ function generateFinalBooleanAsrt(ret_var:string) {
     stmt:[utils.str2ast(ret_str)],
     var:x,
     expr_str: `typeof ${ret_var} === "boolean"`
+  }
+}
+
+//::::::::This function generates an assertion to check if the return type of a function is a boolean:::::::: 
+function generateFinalBooleanWrapperAsrt(ret_var:string) { 
+  var x = freshVars.freshAssertVar();
+
+  var ret_str = `var ${x} = ${ret_var} instanceof "Boolean";`; 
+  return {
+    stmt:[utils.str2ast(ret_str)],
+    var:x,
+    expr_str: `instanceof ${ret_var} === "Boolean"`
   }
 }
 
@@ -82,9 +118,10 @@ function generateFinalUnionAsrt<ts_type>(ret_type:ts_type,ret_var:string, progra
   var stmts = [];
   var expr_str:string = "";
 
-  //Generate an assert for each possible type that the Union can be 
-  for(var i = 0;i<ret_type["types"].length;i++){
-    var type_asrt = generateFinalAsrt(ret_type["types"][i], ret_var, program_info);
+  //Generate an assert for each possible type that the Union can be
+  var union_types = program_info.getUnionTypes(ret_type);
+  for(var i = 0;i<union_types.length;i++){
+    var type_asrt = generateFinalAsrt(union_types[i], ret_var, program_info);
 
     expr_str = i === 0 ? type_asrt.expr_str : expr_str + "||" + type_asrt.expr_str;
     assert_vars.push(type_asrt.var);
@@ -186,22 +223,25 @@ export function generateFinalAsrt<ts_type>(ret_type:ts_type, ret_var:string, pro
   //Based on the type it will decide which assertion the program will generate
   switch(ret_type_str) {
     //If the type is a string it will generate the assertion to a string
-    case "string" : return generateFinalStringAsrt(ret_var); 
+    case "String": return generateFinalStringWrapperAsrt(ret_var);
+    case "StringKeyword" : return generateFinalStringAsrt(ret_var); 
 
     //If the type is a number it will generate the assertion to a number
-    case "number" : return generateFinalNumberAsrt(ret_var); 
+    case "Number": return generateFinalNumberWrapperAsrt(ret_var);
+    case "NumberKeyword" : return generateFinalNumberAsrt(ret_var); 
 
     //If the type is a boolean it will generate the assertion to a boolean
-    case "boolean" : return generateFinalBooleanAsrt(ret_var); 
+    case 'Boolean': return generateFinalBooleanWrapperAsrt(ret_var);
+    case "BooleanKeyword" : return generateFinalBooleanAsrt(ret_var); 
 
     //If the type is null it will generate the assertion to null
-    case "null" : return generateFinalNullAsrt(ret_var); 
+    case "NullKeyword" : return generateFinalNullAsrt(ret_var); 
 
     //If the type is null it will generate the assertion to undefined
-    case "void" : 
-    case "undefined" : return generateFinalVoidAsrt(ret_var); 
+    case "VoidKeyword" : 
+    case "UndefinedKeyword" : return generateFinalVoidAsrt(ret_var); 
 
-    case "any": return generateFinalAnyAsrt(); 
+    case "AnyKeyword": return generateFinalAnyAsrt(); 
     
     //if the type is not a primitive type
     default: 

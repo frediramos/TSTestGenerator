@@ -31,7 +31,7 @@ export function createMockFunction<ts_type>(arg_types:ts_type[],ret_type:ts_type
       if(program_info.isFunctionType(arg_types[i])){
         //Generates the call to the function that is a parameter of this mock function
         var function_elements = program_info.getFunctionElements(arg_types[i]);
-        calls=calls.concat(createCall(ret_args.vars[i], function_elements[0].params,program_info));
+        calls=calls.concat(createCall(ret_args.vars[i], function_elements.params,program_info));
       }
     }
   

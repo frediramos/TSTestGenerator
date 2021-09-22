@@ -39,7 +39,7 @@ function generateMethodTest<ts_type>(class_name:string, method_name:string,metho
 
   //Creation of the object where the method will be tested
   var ret_obj;
-  if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction 
+  if(program_info.hasCycle(class_name)) {       //If the class is cyclic it automatically needs a 'for' for its construction
     ret_obj = generateSymbolicObjects.createObjectRecursiveCall(class_name, program_info);
     new_fuel_vars.push(ret_obj["new_fuel_vars"]);
   }
@@ -111,6 +111,8 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   var function_info=program_info.getFunctionInfo(fun_name);
   var new_fuel_vars:string[] = [];
 
+
+
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
   //Creation the arguments of the function 
@@ -127,7 +129,6 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
     control_vars = control_vars.concat(ret_args.control);
     control_nums = control_nums.concat(ret_args.control_num);
   }
-   
   //Creates the function call and places the return value in a variable 
   var x =freshVars.freshXVar();
   var ret_str = `var ${x} = ${fun_name}(${ret_args.vars_str})`;
@@ -224,7 +225,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
 
   var classes_info = program_info.getClassesInfo();
   //Create functions generated for object recursive and non-recursive objects
-  Object.keys(classes_info).forEach(function (class_name) {
+  classes_info.forEach(function (class_name) {
     if(first_class) {
       fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n\n`;
       fuel_constant_code += `function choice(limit, suffix){
@@ -278,7 +279,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
 
   var interfaces_info = program_info.getInterfacesInfo()
   //Creation of Mock constructors and methods for interfaces
-  Object.keys(interfaces_info).forEach(function (interface_name) {
+  interfaces_info.forEach(function (interface_name) {
     //Creation of the mock constructor for the interface
     var interface_mock_constructor = generateSymbolicInterface.createInterfaceMockConstructor(interface_name,program_info);
     constant_code_str += utils.ast2str(interface_mock_constructor.stmts)+"\n\n";
@@ -293,9 +294,18 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
         constant_code_str += utils.ast2str(proto_assignment)+"\n\n";
       });
     }
+    var functions_info = program_info.getFunctionsInfo();
+    if(functions_info[interface_name]){
+      var interface_function_info = functions_info[interface_name];
+      var interface_mock_function = generateSymbolicFunctions.createMockFunction(interface_function_info.arg_types,interface_function_info.ret_type,program_info);
+      var proto_assignment = TsASTFunctions.createPrototypeAssignment(interface_name, interface_name, interface_mock_function);
+      constant_code_str += utils.ast2str(proto_assignment)+"\n\n";
+    }
   });
 
   var constructors_info = program_info.getConstructorsInfo();
+  console.log('CONSINFO');
+  console.log(constructors_info);
   //Iterates over all the object that have at least one constructor
   Object.keys(constructors_info).forEach(function (class_name) { 
 

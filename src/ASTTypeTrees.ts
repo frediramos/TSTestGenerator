@@ -237,6 +237,8 @@ export function processNode(node: any){
             return getComputedPropertyName(node);
         case "NonNullExpression":
             return getNonNullExpression(node);
+        case "VariableStatement":
+            return getNodeVariableStatement(node);
         default:
             throw Error("Node type not supported: " + ts.SyntaxKind[node.kind] + " - " + node.kind);
     }
@@ -273,7 +275,7 @@ function getMappedType(node:ts.MappedTypeNode){
     }
 }
 
-function getRestType(node:ts.RestTypeNode){
+function getRestType(node){
     return {
         "type": ts.SyntaxKind[node.kind],
         "TStype": processNode(node.type)
@@ -358,8 +360,7 @@ function getTemplateSpan(node:ts.TemplateSpan){
 function getTemplateHeadMiddleLast(node:ts.TemplateHead){
     return {
         "type": ts.SyntaxKind[node.kind],
-        "test": node.text,
-        "rawText": node.rawText!==undefined?node.rawText:null
+        "text": node.text
     }
 }
 
@@ -457,7 +458,7 @@ function getExternalModuleReference(node:ts.ExternalModuleReference){
     }
 }
 
-function getNamespaceExportImport(node:ts.NamespaceImport|ts.NamespaceExport){
+function getNamespaceExportImport(node:ts.NamespaceImport){
     return {
         "type": ts.SyntaxKind[node.kind],
         "identifier": processNode(node.name)
@@ -739,7 +740,7 @@ function getMethodSignature(node:ts.MethodSignature){
 
 function getTupleType(node:ts.TupleTypeNode){
     var elems = [];
-    node.elements.forEach(function(elem){
+    node.elementTypes.forEach(function(elem){
         elems.push(processNode(elem));
     });
     return {
@@ -921,7 +922,9 @@ function getNodeInterface(node:ts.InterfaceDeclaration){
         "heritageClauses": heritageClauses,
         "modifiers": mod,
         "typeParameters": typeparams,
-        "PropertySignatures": properties
+        "CallSignature": null,
+        "PropertySignatures": properties,
+        "MethodSignature": null
     }
 }
 
@@ -1573,6 +1576,27 @@ function processDeclaration(node: ts.Declaration){
             return getNodeVariableDeclaration(node as ts.VariableDeclaration);
         default:
             throw Error("Declaration not supported: " + ts.SyntaxKind[node.kind]);
+    }
+}
+
+function getNodeVariableStatement(node: ts.VariableStatement){
+    var dec = node.declarationList.declarations[0];
+    var init = dec.initializer === undefined ? null : processNode(dec.initializer);
+    var type = dec.type === undefined ? null : processNode(dec.type);
+    var mod = [];
+    if(dec.modifiers !== undefined){
+        dec.modifiers.forEach(function(m){
+            mod.push(processNode(m));
+        });
+    } else {
+        mod = null;
+    }
+    return {
+        "type": ts.SyntaxKind[node.kind],
+        "identifier": processNode(dec.name),
+        "TStype": type,
+        "modifiers": mod,
+        "initializer": init
     }
 }
 

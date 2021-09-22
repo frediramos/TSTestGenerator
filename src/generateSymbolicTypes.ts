@@ -23,6 +23,19 @@ function createStringSymbAssignment () {
         control_num: []
     } 
 }
+
+//::::::::Function used to assign a string symbol to a variable::::::::
+function createStringWrapperSymbAssignment () { 
+  var x = freshVars.freshXVar(); 
+  var ret_str = `var ${x} = new String(${cosFunc.stringCreator(x)})`; 
+
+  return {
+      stmts: [utils.str2ast(ret_str)], 
+      var: x,
+      control: [],
+      control_num: []
+  } 
+}
   
   
 //::::::::Function used to assign a numerical symbol to a variable::::::::
@@ -37,6 +50,19 @@ function createNumberSymbAssignment () {
         control_num: []
     } 
 }
+
+//::::::::Function used to assign a numerical symbol to a variable::::::::
+function createNumberWrapperSymbAssignment () { 
+  var x = freshVars.freshXVar(); 
+  var ret_str = `var ${x} = new Number(${cosFunc.numberCreator(x)})`; 
+
+  return {
+      stmts: [utils.str2ast(ret_str)], 
+      var: x,
+      control: [],
+      control_num: []
+  } 
+}
   
   
 //::::::::Function used to assign a boolean symbol to a variable::::::::
@@ -50,6 +76,19 @@ function createBooleanSymbAssignment () {
         control: [],
         control_num: []
     } 
+}
+
+//::::::::Function used to assign a boolean symbol to a variable::::::::
+function createBooleanWrapperSymbAssignment () { 
+  var x = freshVars.freshXVar(); 
+  var ret_str = `var ${x} = new Boolean(${cosFunc.booleanCreator(x)})`; 
+
+  return {
+      stmts: [utils.str2ast(ret_str)], 
+      var: x,
+      control: [],
+      control_num: []
+  } 
 }
   
   
@@ -105,22 +144,25 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
     //Based on the type it will decide what the program will generate
     switch (type_str) {
       //If the type is a string generates a symbolic string assignment 
-      case "string" : return createStringSymbAssignment(); 
+      case "String": return createStringWrapperSymbAssignment();  
+      case "StringKeyword" : return createStringSymbAssignment(); 
   
       //If the type is a number generates a symbolic number assignment
-      case "number" : return createNumberSymbAssignment();
+      case "Number": return createNumberWrapperSymbAssignment();
+      case "NumberKeyword" : return createNumberSymbAssignment();
   
       //If the type is a boolean generates a symbolic boolean assignment
-      case "boolean" : return createBooleanSymbAssignment();
+      case "Boolean": return createBooleanWrapperSymbAssignment();
+      case "BooleanKeyword" : return createBooleanSymbAssignment();
   
       //If the type is null generates a null assignment
-      case "null" : return createNullAssignment();
+      case "NullKeyword" : return createNullAssignment();
   
       //If the type is null generates a undefined assignment
-      case "void" : 
-      case "undefined" : return createVoidAssignment();
+      case "VoidKeyword" : 
+      case "UndefinedKeyword" : return createVoidAssignment();
 
-      case "any": return createAnyAssignment(); 
+      case "AnyKeyword": return createAnyAssignment(); 
   
       //if the type is not a primitive type
       default:
@@ -150,9 +192,9 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
           //check if there is a return type annotated
           var func_expr;
           if(ret_func_elements[0]){
-            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].params, ret_func_elements[0].ret, program_info);
+            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements.params, ret_func_elements[0].ret, program_info);
           } else {
-            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements[0].params, ret_func_elements[0].ret, program_info);
+            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements.params, ret_func_elements[0].ret, program_info);
           }
           var func_decl = TsASTFunctions.func_expr2func_decl(fun_name, func_expr);
           return {
@@ -181,8 +223,7 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
           return createLiteralType(arg_type);
         }
 
-        //TODO - hoew to deal with generic types
-        else if(program_info.isGenericType(arg_type)){
+        else if(program_info.isGenericType(arg_type) || type_str === 'Function'){
           return createAnyAssignment();
         }
   
@@ -217,13 +258,8 @@ export function createArgSymbols<ts_type>(arg_types:ts_type[],program_info:IProg
     //For each type in the arg_types array generates the variable of the respective type
     for (var i=0; i<arg_types.length; i++) {
       //Creates the variable and assignment of the type
-
-      if(program_info.isFunctionType(arg_types[i])){
-        console.log('SOU UMA FUNCTION')
-      }
-      
       var ret = createSymbAssignment(arg_types[i],program_info,fuel_var);
-      stmts = stmts.concat(ret.stmts); 
+      stmts = stmts.concat(ret.stmts);
       symb_vars.push(ret.var); 
       //Checks if any argument has more than one possible value
       if(ret.control!==undefined){

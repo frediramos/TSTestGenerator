@@ -28,9 +28,10 @@ export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgra
   stmts.push(utils.str2ast(union_str));
 
   //Checks the union_type "types" array to find which types the union can be
-  for(var i =0;i<union_type["types"].length;i++){
+  var union_types = program_info.getUnionTypes(union_type);
+  for(var i =0;i< union_types.length;i++){
     //Generates the variable for each possible union type
-    var ret = generateSymbolicTypes.createSymbAssignment(union_type["types"][i],program_info, fuel_var);
+    var ret = generateSymbolicTypes.createSymbAssignment(union_types[i],program_info, fuel_var);
 
     //Checks if any argument has more than one possible value
     if(ret.control!==undefined){
@@ -61,7 +62,7 @@ export function createUnionType<ts_type>(union_type:ts_type,program_info:IProgra
   stmts.push(utils.str2ast(constants.ENTER_STR));
 
   control_vars.push(control_var);
-  control_nums.push(union_type["types"].length);
+  control_nums.push(union_types.length);
   
   return {
     stmts:stmts,
