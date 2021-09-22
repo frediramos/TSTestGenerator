@@ -1,7 +1,7 @@
 import * as fs from "fs";
-import finder = require("./finder");
-import growers = require("./growers");
-import tg = require("./testGenerator");
+import finder = require("./program_info/finder");
+import growers = require("./test_generator/growers");
+import tg = require("./test_generator/testGenerator");
 import * as path from "path";
 const { execSync } = require("child_process");
 

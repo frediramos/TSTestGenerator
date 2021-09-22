@@ -1,4 +1,4 @@
-import * as parser from "./Parser"
+import * as parser from "../parsing/Parser"
 import {IProgramInfo} from "./IProgramInfo"
 
 export class TSType{

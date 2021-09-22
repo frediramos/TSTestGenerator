@@ -1,4 +1,4 @@
-import {IProgramInfo} from "./IProgramInfo"
+import {IProgramInfo} from "../program_info/IProgramInfo"
 import * as constants from "./constants";
 import * as utils from "./utils";
 import * as freshVars from "./freshVars";
