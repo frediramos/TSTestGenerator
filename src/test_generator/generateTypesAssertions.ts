@@ -1,6 +1,6 @@
 import {IProgramInfo} from "../program_info/IProgramInfo"
-import * as utils from "./utils";
-import * as freshVars from "./freshVars";
+import * as utils from "../utils/utils";
+import * as freshVars from "../utils/freshVars";
 
 
 //::::::::This function generates an assertion to check if the return type of a function is a string:::::::: 

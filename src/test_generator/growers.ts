@@ -1,9 +1,9 @@
 import * as fs from "fs";
-import * as freshVars from "./freshVars";
-import * as TsASTFunctions from "./TsASTFunctions";
+import * as freshVars from "../utils/freshVars";
+import * as TsASTFunctions from "../utils/TsASTFunctions";
 import {IProgramInfo} from "../program_info/IProgramInfo";
-import * as constants from "./constants";
-import { str2ast } from "./utils";
+import * as constants from "../utils/constants";
+import { str2ast } from "../utils/utils";
 import * as generateSymbolicTypes from "./generateSymbolicTypes";
 
 export function addGrowers<ts_type>(program_info:IProgramInfo<ts_type>, json_file:string|undefined) : void {

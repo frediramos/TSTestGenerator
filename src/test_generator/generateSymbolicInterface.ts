@@ -1,6 +1,6 @@
 import {IProgramInfo} from "../program_info/IProgramInfo"
-import * as utils from "./utils";
-import * as TsASTFunctions from "./TsASTFunctions";
+import * as utils from "../utils/utils";
+import * as TsASTFunctions from "../utils/TsASTFunctions";
 import * as generateSymbolicTypes from "./generateSymbolicTypes";
 
 //::::::::This function generates the mock constructor for an interface::::::::
