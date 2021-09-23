@@ -4,16 +4,16 @@ import * as TsASTFunctions from "../utils/TsASTFunctions";
 import {IProgramInfo} from "../program_info/IProgramInfo";
 import * as constants from "../utils/constants";
 import { str2ast } from "../utils/utils";
-import * as generateSymbolicTypes from "./generateSymbolicTypes";
+import * as generateSymbolicTypes from "../test_generator/generateSymbolicTypes";
 
-export function addGrowers<ts_type>(program_info:IProgramInfo<ts_type>, json_file:string|undefined) : void {
+export function addGrowers<ts_type>(program_info:IProgramInfo<ts_type>, json_file) : void {
     if(!json_file)  return;
 
-    var json_file_content = fs.readFileSync(json_file, 'utf8');
-    var obj = JSON.parse(json_file_content);
-    Object.keys(obj.growers).forEach(class_name => {
-        for(var i = 0; i < obj.growers[class_name].length; i++) {
-            program_info.addClassGrower(class_name, obj.growers[class_name][i]);
+    //var json_file_content = fs.readFileSync(json_file, 'utf8');
+    //var obj = JSON.parse(json_file_content);
+    Object.keys(json_file.growers).forEach(class_name => {
+        for(var i = 0; i < json_file.growers[class_name].length; i++) {
+            program_info.addClassGrower(class_name, json_file.growers[class_name][i]);
         }
     })
 }

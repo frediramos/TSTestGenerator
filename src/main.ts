@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import finder = require("./program_info/finder");
-import growers = require("./test_generator/growers");
+import growers = require("./growers/growers");
+import growerFinder = require("./growers/GrowerFinder");
 import tg = require("./test_generator/testGenerator");
 import * as path from "path";
 const { execSync } = require("child_process");
@@ -8,7 +9,7 @@ const { execSync } = require("child_process");
 //Deleting the directory for the function's tests if it exists
 var filename = process.argv[2];
 var output_directory = process.argv[3]
-var growers_file = process.argv[4];
+//var growers_file = process.argv[4];
 
 var tests_dir;
 if(output_directory !== undefined){
@@ -31,8 +32,11 @@ if (err) return;
 //Retrieving the program information using the finder
 var prog_info:finder.ProgramInfo = finder.finder(filename);
 
+//Find growers in the program
+var growers_json = growerFinder.finder(filename);
+
 //Stores the growers info in the program info structure
-growers.addGrowers(prog_info, growers_file);
+growers.addGrowers(prog_info, growers_json);
 
 //Checking for cyclic constructions
 var cycles =finder.findCycles(prog_info);

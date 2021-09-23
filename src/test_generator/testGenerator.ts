@@ -10,7 +10,7 @@ import * as generateSymbolicObjects from "./generateSymbolicObjects";
 import * as generateSymbolicInterface from "./generateSymbolicInterface";
 import * as generateSymbolicFunctions from "./generateSymbolicFunctions";
 import * as generateTypesAssertions from "./generateTypesAssertions";
-import * as growers from "./growers";
+import * as growers from "../growers/growers";
 import * as cosetteFunctions from "../utils/cosetteFunctions";
 
 var cosFunc = new cosetteFunctions.CosetteFunctions(); 

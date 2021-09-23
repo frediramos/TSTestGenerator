@@ -1,0 +1,12 @@
+{
+    "growers":{
+        "ArrayType": {
+            "push": {
+                "type":{
+                    "type": "FirstLiteralToken",
+                    "subtypes": null
+                }
+            }
+        }
+    }
+}
