@@ -7,9 +7,16 @@ const { execSync } = require("child_process");
 
 //Deleting the directory for the function's tests if it exists
 var filename = process.argv[2];
-var growers_file = process.argv[3];
+var output_directory = process.argv[3]
+var growers_file = process.argv[4];
 
-var tests_dir = "Test_"+path.parse(filename).name;
+var tests_dir;
+if(output_directory !== undefined){
+    tests_dir = output_directory + "/Test_"+path.parse(filename).name;
+} else {
+    tests_dir = "../Output/Test_"+path.parse(filename).name;
+}
+
 var command_tests_dir = "rm -rf "+tests_dir;
 execSync(command_tests_dir, (err, stdout, stderr) => {
 if (err) return;
@@ -64,4 +71,4 @@ if (err) return;
 var test = tg.generateTests(prog_info, tests_dir, file_code_comp);
 
 //Writing the Typescript file, the compiled file and the tests in an output file
-fs.writeFileSync(process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0]+"-global-test.js",file_code+file_code_comp+"\n\n"+test);
+fs.writeFileSync(tests_dir + "/" + process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0]+"-global-test.js",file_code+file_code_comp+"\n\n"+test);

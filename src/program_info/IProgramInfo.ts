@@ -13,6 +13,7 @@ export interface IProgramInfo <ts_type>{
 
     getInterfacesInfo(): string[];
     getInterfacePropertiesInfo(interface_name: string): {[class_name:string]: ts_type;};
+    isInterfaceCallSignature(interface_name:ts_type):boolean;
 
     getCyclesHashTable(): {[class_name: string] : string[][];};
 

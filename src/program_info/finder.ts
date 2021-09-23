@@ -3,8 +3,9 @@ import {IProgramInfo} from "./IProgramInfo"
 
 export class TSType{
     type;
+    flag;
 
-    constructor(type){
+    constructor(type, flag?){
         if(type === null){
             this.type = {
                 type: 'VoidKeyword'
@@ -12,17 +13,28 @@ export class TSType{
         } else {
             this.type = type;
         }
+        if(flag !== undefined) this.flag = flag;
     }
 
     getType(){
         return this.type;
     }
+
+    getFlag(){
+        return this.flag;
+    }
 }
 
 //Class to store parameters type, return type and class type if it is a class method and not a function
 export class ComposedInfo {
+
     arg_types:TSType[]=[];
     ret_type:TSType;
+    flag:string;
+
+    constructor(flag?){
+        if(flag !== undefined) this.flag = flag
+    }
 }
 
 //Interface of a simple Hashtable
@@ -187,6 +199,10 @@ export class ProgramInfo implements IProgramInfo<TSType> {
 
     isGenericType(generic_type:TSType):boolean {
         return generic_type.getType().type === 'TypeParameter';
+    }
+
+    isInterfaceCallSignature(interface_type:TSType):boolean {
+        return interface_type.getFlag() === 'CallSignature';
     }
 
     getStringFromType(type):string {
@@ -376,8 +392,16 @@ function visitAST(ast, prog_info:ProgramInfo) {
 
                     //handle functions
                     if(prop.type === 'CallSignature'){
-                        prog_info.FunctionsInfo[name]=new ComposedInfo();
+                        prop.type = 'Function';
+
+                        //Must initialize sub-hashtable, otherwise it is undefined
+                        if(prog_info.PropertiesInfo[name]===undefined){
+                            prog_info.PropertiesInfo[name] = {};
+                        }
+                        //Stores the property type in the position"<Class/InterfaceName><PropertyName>" of PropertiesInfo
+                        prog_info.PropertiesInfo[name]['FunctionType'] = new TSType(prop, 'CallSignature');
         
+                        /*
                         //Store the types of the parameters in arg_types in the position "<Class/InterfaceName><MethodName>" of MethodsInfo 
                         if(prop.parameters !== null){
                             prop.parameters.forEach(parameter => {
@@ -387,6 +411,7 @@ function visitAST(ast, prog_info:ProgramInfo) {
 
                         //Store the return type of the function in ret_type in the position "<FunctionName>" of FunctionsInfo
                         prog_info.FunctionsInfo[name].ret_type = new TSType(prop.TStype);
+                        */
                     }
                     
                 });   

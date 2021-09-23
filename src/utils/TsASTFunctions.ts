@@ -1,4 +1,4 @@
-import * as constants from "./constants";
+import * as constants from "../utils/constants";
 import * as freshVars from "./freshVars";
 import * as utils from "./utils";
 
@@ -401,5 +401,22 @@ export function createFuelVarDeclr(fuel_var:string, suffix:string) {
       }
     ],
     kind: "var"
+  }
+}
+
+export function createVariableDeclaration(var_name:string, initializer){
+  return {
+    "type": "VariableDeclaration",
+    "declarations": [
+      {
+        "type": "VariableDeclarator",
+        "id": {
+          "type": "Identifier",
+          "name": var_name
+        },
+        "init": initializer
+      }
+    ],
+    "kind": "var"
   }
 }

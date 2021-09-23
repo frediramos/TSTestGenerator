@@ -49,31 +49,7 @@ export function createObjectRecursiveCall<ts_type>(class_name:string, program_in
       fuel_var_str = fuel_var;
     }
 
-    var if_json = {
-      "type": "IfStatement",
-      "test": {
-        "type": "BinaryExpression",
-        "operator": "===",
-        "left": {
-          "type": "Identifier",
-          "name": fuel_var_str
-        },
-        "right": {
-          "type": "Literal",
-          "value": 0,
-          "raw": "0"
-        }
-      },
-      "consequent": {
-        "type": "ReturnStatement",
-        "argument": {
-          "type": "Literal",
-          "value": null,
-          "raw": "null"
-        }
-      },
-      "alternate": null
-    }
+    var if_json = TsASTFunctions.generateIfFuelStatement(fuel_var_str);
 
     var call = `var ${recurs_obj_var} = ${getCreateMethodName(class_name)}(${fuel_var_str}--);`;
     return {

@@ -191,12 +191,18 @@ export function createSymbAssignment <ts_type> (arg_type:ts_type,program_info:IP
           var fun_name = freshVars.freshMockFuncVar();
           //check if there is a return type annotated
           var func_expr;
-          if(ret_func_elements[0]){
-            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements.params, ret_func_elements[0].ret, program_info);
+          if(ret_func_elements){
+            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
           } else {
-            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements.params, ret_func_elements[0].ret, program_info);
+            func_expr = generateSymbolicFunctions.createMockFunction(ret_func_elements.params, ret_func_elements.ret, program_info);
           }
-          var func_decl = TsASTFunctions.func_expr2func_decl(fun_name, func_expr);
+          var func_decl;
+          //check if it is as call signature from an interface
+          if(program_info.isInterfaceCallSignature(arg_type)){
+            func_decl = TsASTFunctions.createVariableDeclaration(fun_name, func_expr);
+          } else {
+            func_decl = TsASTFunctions.func_expr2func_decl(fun_name, func_expr);
+          }
           return {
             stmts: [func_decl],
             var: fun_name,
