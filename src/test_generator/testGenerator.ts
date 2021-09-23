@@ -304,8 +304,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   });
 
   var constructors_info = program_info.getConstructorsInfo();
-  console.log('CONSINFO');
-  console.log(constructors_info);
+  
   //Iterates over all the object that have at least one constructor
   Object.keys(constructors_info).forEach(function (class_name) { 
 

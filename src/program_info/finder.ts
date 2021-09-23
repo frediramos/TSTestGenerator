@@ -264,8 +264,6 @@ export function finder(filename:string):ProgramInfo {
     //call custom parser
     var ast = parser.getAST(filename);
     visitAST(ast,prog_info);
-    console.log(ast)
-    console.log(prog_info);
     return prog_info;
 }
 

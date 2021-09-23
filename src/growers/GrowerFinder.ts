@@ -131,7 +131,6 @@ function analyse(ast){
     var typ_env = new TypEnv();
     //build ctx
     var ctx = createContext(classes);
-    console.log(ctx);
     var result = {'growers':{}};
     classes.forEach(c => {
         var grow_methods = analyseClass(c.identifier.identifier, ctx, typ_env, c);
@@ -259,9 +258,6 @@ function analyseClass(class_name, ctx, typ_env, c){
             }
         });
     }
-
-    console.log(ctx);
-    console.log(typ_env);
     return grow_methods;
 }
 
@@ -400,7 +396,6 @@ function analyseExpression(class_name, meth_name, ctx, typ_env, e){
         case 'Identifier':
             var dep : boolean = findDep(typ_env, e.identifier);
             var type = searchClass(e.identifier, typ_env, ctx, class_name, meth_name);
-            //console.log('ID: ' + e.identifier + ' Type: ' + type);
             return {
                 typ_env: typ_env,
                 eff: Effect.getBOT(),
