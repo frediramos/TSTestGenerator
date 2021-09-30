@@ -239,8 +239,17 @@ export function processNode(node: any){
             return getNonNullExpression(node);
         case "VariableStatement":
             return getNodeVariableStatement(node);
+        case "LastTypeNode":
+            return getLastTypeNode(node);
         default:
             throw Error("Node type not supported: " + ts.SyntaxKind[node.kind] + " - " + node.kind);
+    }
+}
+
+function getLastTypeNode(node){
+    return {
+        "type": 'StringLiteral',
+        "value": node.literal.text
     }
 }
 

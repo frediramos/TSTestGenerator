@@ -1,8 +1,8 @@
 import * as parser from "../parsing/Parser";
-import * as fs from "fs";
-import * as selected_growers from './SelectedGrowers.json';
+import * as growers from "../growers/SelectedGrowers";
 
 var _AST_;
+var selected_growers = growers.getSelectedGrowers();
 
 class Dependency {
     private static __OH__ = true;
@@ -472,6 +472,7 @@ function analyseExpression(class_name, meth_name, ctx, typ_env, e){
             var type = undefined;
             if(ret1.type !== undefined){
                 type = getFieldType(ret1.type,e.identifier.identifier,ctx);
+                //console.log(type);
             }
              
             return {
@@ -512,7 +513,7 @@ function analyseExpression(class_name, meth_name, ctx, typ_env, e){
                 var type = exp.type;
                 //prevent declarations without initializer
                 if(exp.type !== undefined){
-                    var eff_typ = getEffType(type,e.expression.identifier.identifier, class_name, ctx, typ_env);
+                    var eff_typ = getEffType(type,e.expression.identifier.identifier,meth_name, class_name, ctx, typ_env);
                     if(eff_typ.eff !== undefined && Dependency.isTH(exp.dep)){
                         effect.push(eff_typ.eff);
                     }
@@ -604,6 +605,24 @@ function analyseExpression(class_name, meth_name, ctx, typ_env, e){
                 dep: Dependency.getOH(),
                 type: undefined
             }
+        case 'ObjectLiteralExpression':
+            var effs = [];
+            e.properties.forEach(prop => {
+                effs.push(analyseExpression(class_name, meth_name, ctx, typ_env, prop).eff);
+            });
+            return {
+                typ_env: typ_env,
+                eff: effs,
+                dep: Dependency.getOH(),
+                type: undefined
+            };
+        case 'PropertyAssignment':
+            return {
+                typ_env: typ_env,
+                eff: analyseExpression(class_name, meth_name, ctx, typ_env, e.initializer).eff,
+                dep: Dependency.getOH(),
+                type: undefined
+            };
         default:
             throw Error("Expression type not supported: " + e.type);
     }
@@ -617,8 +636,11 @@ function getFieldType(type,exp,ctx) : string{
     if(type.type !== undefined){
         typ = type.type;
     }
+
     //catch typereference node
     if(typ === 'TypeReference') typ = type.identifier.identifier;
+
+    if(typ === 'UnionType') return type;
 
     if(ctx.classes[typ] === undefined) {
         console.log('Warning: Type ' + typ + ' is not processed');
@@ -636,7 +658,7 @@ function getFieldType(type,exp,ctx) : string{
     ctx.classes[typ].methods[exp].type;
 }
 
-function getEffType(type,meth_name, class_name, ctx, typ_env){
+function getEffType(type, meth_name_to_analyse,meth_name, class_name, ctx, typ_env){
     var ret_eff;
     var ret_type;
     var typ_name;
@@ -647,11 +669,16 @@ function getEffType(type,meth_name, class_name, ctx, typ_env){
     }
     //check if the type exists in ctx
     if(ctx.classes[typ_name] !== undefined && 
-        ctx.classes[typ_name].methods[meth_name] !== undefined){
-        var ret_ctx = ctx.classes[typ_name].methods[meth_name];
+        ctx.classes[typ_name].methods[meth_name_to_analyse] !== undefined){
+        var ret_ctx = ctx.classes[typ_name].methods[meth_name_to_analyse];
         ret_type = ret_ctx.type;
-        if(!ctx.classes[typ_name].methods[meth_name].analysed){
-            ret_eff = preAnalyseMethod(class_name,meth_name, ctx, typ_env);
+        if(!ctx.classes[typ_name].methods[meth_name_to_analyse].analysed){
+            //check if the method call is circular
+            if(meth_name === meth_name_to_analyse){
+                ret_eff = Effect.getBOT();
+            } else {
+                ret_eff = preAnalyseMethod(class_name, meth_name_to_analyse, ctx, typ_env);
+            }
         } else {
             ret_eff = ret_ctx.eff;
         }

@@ -170,7 +170,9 @@ export class ProgramInfo implements IProgramInfo<TSType> {
     //::::::::Checks if the given type is a function type::::::::
     isFunctionType(arg_type:TSType):boolean {
         var arg_str = arg_type.getType().type;
-        return arg_str && arg_str === 'ArrowFunction' || arg_str === 'Function'; 
+        return arg_str && arg_str === 'ArrowFunction' || 
+        arg_str === 'Function' || 
+        arg_str === 'FunctionType'; 
     }
 
     //::::::::Checks if the given type is an array type::::::::
