@@ -5,7 +5,7 @@ green=`tput setaf 2`
 yellow=`tput setaf 3`
 reset=`tput sgr0`
 
-echo "Running pre-commit tests"
+echo "Running tests"
 echo "------------------------"
 cd src/
 tsc main.ts
