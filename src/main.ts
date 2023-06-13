@@ -53,7 +53,7 @@ try {
 //Compiling file that is being tested
 var command = "tsc "+process.argv.slice(2)[0];
 execSync(command, (err, stdout, stderr) => {
-if (err) return;
+    if (err) return;
 });
 
 //Getting the code from the compiled file that is being tested
@@ -68,11 +68,13 @@ try {
 
 var remove_js_file = "rm -f "+js_file;
 execSync(remove_js_file, (err, stdout, stderr) => {
-if (err) return;
+    if (err) return;
 });
 
 //Tests generation
-var test = tg.generateTests(prog_info, tests_dir, file_code_comp);
+var [fuel_constant_code, test] = tg.generateTests(prog_info, tests_dir, file_code_comp);
 
 //Writing the Typescript file, the compiled file and the tests in an output file
-fs.writeFileSync(tests_dir + "/" + process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0]+"-global-test.js",file_code+file_code_comp+"\n\n"+test);
+fs.writeFileSync(tests_dir + "/" + process.argv.slice(2)[0].replace(/^.*[\\\/]/, '').split(".")[0]+"-global-test.js",
+                fuel_constant_code + file_code + file_code_comp + "\n\n" + test);
+                

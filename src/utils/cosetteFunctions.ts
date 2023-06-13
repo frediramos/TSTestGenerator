@@ -6,7 +6,6 @@ export class CosetteFunctions {
     null_creator:string = "null"
     void_creator:string = "undefined"
     any_creator:string = "symb"
-    fresh_symb_creator:string = "fresh_symb"
     assume:string = "esl_symbolic.assume"
     assert:string = "esl_symbolic.assert"
   

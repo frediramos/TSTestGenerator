@@ -213,7 +213,7 @@ function createWrapperEnumeratorTest(fuel_vars_num:number, control_vars_num:numb
 
 
 //::::::::This fucntion is responsible for genarating the program tests::::::::
-export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,output_dir:string, js_file:string):string{
+export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,output_dir:string, js_file:string):[string, string]{
   var tests = [];
   var curr_test = "";
   var number_test:finder.HashTable<number> = {};
@@ -224,16 +224,18 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   var first_class:boolean = true;
 
   var classes_info = program_info.getClassesInfo();
-  //Create functions generated for object recursive and non-recursive objects
-  classes_info.forEach(function (class_name) {
-    if(first_class) {
-      fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n\n`;
-      fuel_constant_code += `function choice(limit, suffix){
-      var x = ${cosFunc.fresh_symb_creator}('choice_var', 'number');
+
+  fuel_constant_code += `var fuel = ${constants.FUEL_VAR_DEPTH};\n\n`;
+  fuel_constant_code += `function choice(limit, suffix){
+      var x = ${cosFunc.number_creator}('choice' + suffix);
       var arg = (x > 0 && x <= limit);
       ${cosFunc.assume}(arg);
       return x;
     }\n`;
+
+  //Create functions generated for object recursive and non-recursive objects
+  classes_info.forEach(function (class_name) {
+    if(first_class) {
       comment = "Comment1Functions"+constants.SPACE_STR+"used"+constants.SPACE_STR+"to"+constants.SPACE_STR+"create/grow"+constants.SPACE_STR+"the"+constants.SPACE_STR+"objects"+"Comment2();";
       tests.push(utils.str2ast(comment));
       constant_code_str += comment+"\n";
@@ -414,6 +416,7 @@ export function generateTests<ts_type>(program_info : IProgramInfo<ts_type>,outp
   //Manipulation of test file string to create special characters
   var test_str_final = utils.stringManipulation(test_str);
 
-  //returns the string with all the test functions together
-  return "/*\n=====Function that will run the tests functions=====\n*/\nfunction Test() "+test_str_final+"\n\nTest();";
+  //returns the string with all the test functions together 
+  return [fuel_constant_code + '\n',
+          "/*\n=====Function that will run the tests functions=====\n*/\nfunction Test() " + test_str_final + "\n\nTest();"];
 }
