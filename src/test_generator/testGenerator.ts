@@ -138,7 +138,7 @@ function generateFunctionTest<ts_type>(fun_name:string,fun_number_test:number,pr
   //Creates the assertion of the variable with the function's return type to the expected return type
   var ret_asrt = generateTypesAssertions.generateFinalAsrt(function_info.ret_type,x,program_info);
   stmts = stmts.concat(ret_asrt.stmt);
-  stmts.push(utils.str2ast(`Assert(${ret_asrt.var})`));
+  stmts.push(utils.str2ast(`${cosFunc.assert}(${ret_asrt.var})`));
   
   for(var i = 0; i < control_vars.length; i++) {
     var control_var_declaration = TsASTFunctions.createControlVarDeclr(control_vars[i], control_nums[i], freshVars.freshChoiceSuffix());

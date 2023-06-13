@@ -1,13 +1,14 @@
 //Class used to store the Cosette functions
 export class CosetteFunctions {
-    number_creator:string = "symb_number"
-    string_creator:string = "symb_string"
+    number_creator:string = "esl_symbolic.number"
+    string_creator:string = "esl_symbolic.string"
     boolean_creator:string = "symb_boolean"
     null_creator:string = "null"
     void_creator:string = "undefined"
     any_creator:string = "symb"
     fresh_symb_creator:string = "fresh_symb"
-    assume:string = "Assume"
+    assume:string = "esl_symbolic.assume"
+    assert:string = "esl_symbolic.assert"
   
     //function that will return the string of the call of the symbolic number creator
     numberCreator(x:string):string{
@@ -41,6 +42,6 @@ export class CosetteFunctions {
   
     //function that will return the string of the assertion of a typeof 
     assertCreator(x:string,t:string):string{
-      return `Assert(typeof ${x} === "${t}");`
+      return `${this.assert}(typeof ${x} === "${t}");`
     }
   }
