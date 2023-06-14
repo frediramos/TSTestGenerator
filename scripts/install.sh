@@ -2,8 +2,9 @@
 
 echo Transpiling to JS...
 tsc src/main.ts
-echo >> ~/.bashrc 
-echo "alias tstgen=\"node $PWD/src/main.js\"" >> ~/.bashrc 
+echo >> ~/.bash_profile 
+echo "alias tstgen=\"node $PWD/src/main.js\"" >> ~/.bash_profile 
+source ~/.bash_profile 
 echo \'tstgen\' sym link created
 
 
