@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 
+shopt -s expand_aliases
+source ~/.bash_profile 
+
 TSFILE=$1
 OUTDIR=$2
 NAME="$(basename $TSFILE)"
 NAME="${NAME%.*}"
 
-TSTGEN=~/TSTestGenerator/src/main.js
 JS2ECMA=js2cesl
 
 #Gen symbolic test (.js) for Typescript file
 echo "Generating symbolic tests..."
 echo "node $TSTGEN $TSFILE $OUTDIR"
-node $TSTGEN $TSFILE $OUTDIR
+tstgen $TSFILE $OUTDIR
 echo
 
 #Gen ECMA-Sl file from all the JavaScript tests
