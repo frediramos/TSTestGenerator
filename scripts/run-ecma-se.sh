@@ -1,7 +1,23 @@
 #!/usr/bin/env bash
 
 shopt -s expand_aliases
-source ~/.bash_profile 
+
+BASH_PROFILE=~/.bash_profile 
+BASH_RC=~/.bashrc
+PROFILE=~/.profile
+
+if test -f "$BASH_PROFILE"; then
+    source $FILE
+fi
+
+if test -f "$BASH_RC"; then
+    source $BASH_RC
+fi
+
+if test -f "$PROFILE"; then
+    source $PROFILE
+fi
+
 
 TSFILE=$1
 OUTDIR=$2
@@ -13,7 +29,7 @@ JS2ECMA=js2cesl
 #Gen symbolic test (.js) for Typescript file
 echo "Generating symbolic tests..."
 echo "node $TSTGEN $TSFILE $OUTDIR"
-tstgen $TSFILE $OUTDIR
+node ~/TSTestGenerator/src/main.js $TSFILE $OUTDIR
 echo
 
 #Gen ECMA-Sl file from all the JavaScript tests
