@@ -45,6 +45,7 @@ var cycles =finder.findCycles(prog_info);
 var file_code:string;
 try {
     file_code = fs.readFileSync(process.argv.slice(2)[0], 'utf8');
+    file_code = file_code.replace(/(\/ *\*|\* *\/)/g, '')
     file_code = "/* \n=====Typescript file that is being tested=====\n\n"+file_code+"\n*/\n\n\n";
 } catch(e) {
     console.log('Error:', e.stack);
@@ -52,7 +53,7 @@ try {
 
 //Compiling file that is being tested
 var command = "tsc "+process.argv.slice(2)[0];
-execSync(command, (err, stdout, stderr) => {
+execSync(command, (err: any, stdout: any, stderr: any) => {
     if (err) return;
 });
 
@@ -67,7 +68,7 @@ try {
 }
 
 var remove_js_file = "rm -f "+js_file;
-execSync(remove_js_file, (err, stdout, stderr) => {
+execSync(remove_js_file, (err: any, stdout: any, stderr: any) => {
     if (err) return;
 });
 
