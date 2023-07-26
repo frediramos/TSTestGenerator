@@ -1,13 +1,24 @@
 #!/usr/bin/env bash
 
-shopt -s expand_aliases
+if [ -z "$1" ]; then
+    echo "Missing target (.ts file)"
+    exit
+fi
+TSFILE=$1
+OUTDIR=$2
 
+if [ -z "$2" ]; then
+    OUTDIR=.
+fi
+
+
+shopt -s expand_aliases
 BASH_PROFILE=~/.bash_profile 
 BASH_RC=~/.bashrc
 PROFILE=~/.profile
 
 if test -f "$BASH_PROFILE"; then
-    source $FILE
+    source $BASH_PROFILE
 fi
 
 if test -f "$BASH_RC"; then
@@ -19,8 +30,6 @@ if test -f "$PROFILE"; then
 fi
 
 
-TSFILE=$1
-OUTDIR=$2
 NAME="$(basename $TSFILE)"
 NAME="${NAME%.*}"
 
@@ -28,8 +37,7 @@ JS2ECMA=js2cesl
 
 #Gen symbolic test (.js) for Typescript file
 echo "Generating symbolic tests..."
-echo "node $TSTGEN $TSFILE $OUTDIR"
-node ~/TSTestGenerator/src/main.js $TSFILE $OUTDIR
+tstgen $TSFILE $OUTDIR
 echo
 
 #Gen ECMA-Sl file from all the JavaScript tests
